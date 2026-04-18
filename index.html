@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Young Life — Sacramento County Ministry Map</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    html, body { height: 100%; display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+<header id="header">
+
+  <div class="brand">
+    <div class="yl-badge">YL</div>
+    <div class="brand-text">
+      <span class="brand-name">Young Life</span>
+      <span class="brand-sub">Sacramento County</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Filter buttons -->
+  <div class="filters" id="filterGroup">
+    <button class="filter-btn active" data-filter="all">All Schools</button>
+    <button class="filter-btn"        data-filter="existing">Existing</button>
+    <button class="filter-btn"        data-filter="target">Target</button>
+  </div>
+
+  <!-- Boundary zones toggle -->
+  <button id="boundaryBtn" class="boundary-btn">School Zones</button>
+
+  <!-- Compare button -->
+  <button id="compareBtn" disabled>Compare Schools</button>
+
+  <!-- Sheets sync indicator -->
+  <div id="syncStatus" class="sync-status hidden" title="Live sync from Google Sheets">
+    <span class="sync-dot"></span> Live Data
+  </div>
+
+  <!-- Live summary stats -->
+  <div class="header-stats">
+    <div class="hstat">
+      <span class="n" id="statExisting">—</span>
+      <span class="l">Existing</span>
+    </div>
+    <div class="hstat">
+      <span class="n" id="statTarget">—</span>
+      <span class="l">Target</span>
+    </div>
+    <div class="hstat">
+      <span class="n" id="statTotal">—</span>
+      <span class="l">Total</span>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="leg-item">
+      <div class="leg-dot existing"></div>
+      <span>Existing — Where we are</span>
+    </div>
+    <div class="leg-item">
+      <div class="leg-dot target"></div>
+      <span>Target — Where we are going</span>
+    </div>
+  </div>
+
+</header>
+
+<!-- ── MAP + OVERLAYS ──────────────────────────────────────────────────── -->
+<div id="map-wrap">
+
+  <!-- Leaflet map -->
+  <div id="map"></div>
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────────────── -->
+  <div id="sidebar">
+    <button id="sidebarClose" title="Close">&times;</button>
+    <div id="sidebarContent"></div>
+  </div>
+
+  <!-- ── COMPARE PANEL ───────────────────────────────────────────────── -->
+  <div id="comparePanel">
+    <div class="cmp-header">
+      <h2>School Comparison</h2>
+      <div class="cmp-header-btns">
+        <button class="cmp-clear-btn" id="cmpClearBtn">Clear All</button>
+        <button class="cmp-close-btn" id="cmpCloseBtn">&times; Close</button>
+      </div>
+    </div>
+    <div class="cmp-body" id="cmpBody">
+      <p style="color:#9ca3af;font-size:13px;padding:4px">
+        Add at least 2 schools from the sidebar to compare.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── HOVER TOOLTIP ───────────────────────────────────────────────────── -->
+<div id="tooltip"></div>
+
+<!-- ── SCRIPTS ─────────────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js?v=3"></script>
+<script src="data.js?v=3"></script>
+<script src="app.js?v=3"></script>
+
+</body>
+</html>
