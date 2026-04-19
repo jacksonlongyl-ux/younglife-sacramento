@@ -7,11 +7,13 @@ const RED  = '#C8102E';
 const BLUE = '#009FD4';
 
 const DEMO_COLORS = {
-  hispanic: '#f97316',
-  asian:    '#3b82f6',
-  black:    '#8b5cf6',
-  white:    '#10b981',
-  other:    '#94a3b8'
+  hispanic:  '#f97316',
+  asian:     '#3b82f6',
+  black:     '#8b5cf6',
+  white:     '#10b981',
+  filipino:  '#ec4899',
+  twoOrMore: '#14b8a6',
+  other:     '#94a3b8'
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────
@@ -68,18 +70,24 @@ async function loadSchoolData() {
         district:      o.district,
         grades:        o.grades,
         address:       o.address,
-        enrollment:    o.enrollment    ? Number(o.enrollment)    : null,
-        frpm:          o.frpm          ? Number(o.frpm)          : null,
-        attendance:    o.attendance    ? Number(o.attendance)    : null,
-        englishLearners: o.englishLearners ? Number(o.englishLearners) : null,
-        specialEd:     o.specialEd     ? Number(o.specialEd)     : null,
-        medianIncome:  o.medianIncome  ? Number(o.medianIncome)  : null,
+        enrollment:          o.enrollment          ? Number(o.enrollment)          : null,
+        frpm:                o.frpm                ? Number(o.frpm)                : null,
+        attendance:          o.attendance          ? Number(o.attendance)          : null,
+        chronicAbsenteeism:  o.chronicAbsenteeism  ? Number(o.chronicAbsenteeism)  : null,
+        suspensionRate:      o.suspensionRate       ? Number(o.suspensionRate)      : null,
+        graduationRate:      o.graduationRate       ? Number(o.graduationRate)      : null,
+        collegeCareerReady:  o.collegeCareerReady   ? Number(o.collegeCareerReady)  : null,
+        englishLearners:     o.englishLearners      ? Number(o.englishLearners)     : null,
+        specialEd:           o.specialEd            ? Number(o.specialEd)           : null,
+        medianIncome:        o.medianIncome         ? Number(o.medianIncome)        : null,
         demographics: {
-          hispanic: Number(o.hispanic || 0),
-          asian:    Number(o.asian    || 0),
-          black:    Number(o.black    || 0),
-          white:    Number(o.white    || 0),
-          other:    Number(o.other    || 0)
+          hispanic:  Number(o.hispanic  || 0),
+          asian:     Number(o.asian     || 0),
+          black:     Number(o.black     || 0),
+          white:     Number(o.white     || 0),
+          filipino:  Number(o.filipino  || 0),
+          twoOrMore: Number(o.twoOrMore || 0),
+          other:     Number(o.other     || 0)
         },
         testScores: {
           ela:  o.ela  ? Number(o.ela)  : null,
@@ -295,6 +303,7 @@ function buildSidebarHTML(sc) {
       </div>
     </div>
 
+    ${missionSection(sc)}
     ${sc.demographics ? demoSection(sc.demographics) : ''}
     ${sc.testScores.ela !== null ? scoresSection(sc.testScores) : ''}
     ${sc.medianIncome ? incomeSection(sc.medianIncome) : ''}
@@ -310,14 +319,51 @@ function buildSidebarHTML(sc) {
   `;
 }
 
+function missionSection(sc) {
+  const items = [];
+
+  if (sc.graduationRate !== null && sc.graduationRate !== undefined && sc.type === 'HS') {
+    const color = sc.graduationRate >= 90 ? '#16a34a' : sc.graduationRate >= 80 ? '#d97706' : RED;
+    items.push({ label: 'Graduation Rate', value: `${sc.graduationRate}%`, color });
+  }
+  if (sc.chronicAbsenteeism !== null && sc.chronicAbsenteeism !== undefined) {
+    const color = sc.chronicAbsenteeism <= 10 ? '#16a34a' : sc.chronicAbsenteeism <= 20 ? '#d97706' : RED;
+    items.push({ label: 'Chronic Absenteeism', value: `${sc.chronicAbsenteeism}%`, color });
+  }
+  if (sc.suspensionRate !== null && sc.suspensionRate !== undefined) {
+    const color = sc.suspensionRate <= 2 ? '#16a34a' : sc.suspensionRate <= 5 ? '#d97706' : RED;
+    items.push({ label: 'Suspension Rate', value: `${sc.suspensionRate}%`, color });
+  }
+  if (sc.collegeCareerReady !== null && sc.collegeCareerReady !== undefined) {
+    const color = sc.collegeCareerReady >= 50 ? '#16a34a' : sc.collegeCareerReady >= 35 ? '#d97706' : RED;
+    items.push({ label: 'College & Career Ready', value: `${sc.collegeCareerReady}%`, color });
+  }
+
+  if (items.length === 0) return '';
+
+  return `<div class="section">
+    <div class="sec-title">Mission Context</div>
+    <div class="mission-grid">
+      ${items.map(({ label, value, color }) => `
+        <div class="mission-cell">
+          <span class="mission-val" style="color:${color}">${value}</span>
+          <span class="mission-lbl">${label}</span>
+        </div>`).join('')}
+    </div>
+    <div class="mission-note">Green = healthy · Amber = concern · Red = high need</div>
+  </div>`;
+}
+
 function demoSection(demo) {
   const rows = [
-    { key: 'hispanic', label: 'Hispanic / Latino' },
-    { key: 'asian',    label: 'Asian' },
-    { key: 'black',    label: 'Black / African Am.' },
-    { key: 'white',    label: 'White' },
-    { key: 'other',    label: 'Other / Multi' }
-  ].map(({ key, label }) => {
+    { key: 'hispanic',  label: 'Hispanic / Latino' },
+    { key: 'asian',     label: 'Asian' },
+    { key: 'black',     label: 'Black / African Am.' },
+    { key: 'white',     label: 'White' },
+    { key: 'filipino',  label: 'Filipino' },
+    { key: 'twoOrMore', label: 'Two or More Races' },
+    { key: 'other',     label: 'Other' }
+  ].filter(({ key }) => (demo[key] || 0) > 0).map(({ key, label }) => {
     const pct = demo[key] || 0;
     return `
       <div class="demo-row">
@@ -386,10 +432,10 @@ function incomeSection(income) {
 
 function detailSection(sc) {
   const rows = [];
-  if (sc.address)        rows.push(['Address', sc.address]);
-  if (sc.attendance)     rows.push(['Attendance Rate', `${sc.attendance}%`]);
-  if (sc.englishLearners !== null) rows.push(['English Learners', `${sc.englishLearners}%`]);
-  if (sc.specialEd !== null)       rows.push(['Special Education', `${sc.specialEd}%`]);
+  if (sc.address)                                        rows.push(['Address', sc.address]);
+  if (sc.attendance)                                     rows.push(['Attendance Rate', `${sc.attendance}%`]);
+  if (sc.englishLearners !== null && sc.englishLearners !== undefined) rows.push(['English Learners', `${sc.englishLearners}%`]);
+  if (sc.specialEd !== null && sc.specialEd !== undefined)             rows.push(['Special Education', `${sc.specialEd}%`]);
 
   return `<div class="section">
     <div class="sec-title">School Details</div>
@@ -454,11 +500,13 @@ function renderComparePanel() {
 
   // Compute best/worst per metric (for highlighting)
   const metrics = {
-    enrollment:  { higher: true },
-    frpm:        { higher: false },
-    ela:         { higher: true },
-    math:        { higher: true },
-    medianIncome:{ higher: true }
+    enrollment:         { higher: true },
+    frpm:               { higher: false },
+    ela:                { higher: true },
+    math:               { higher: true },
+    graduationRate:     { higher: true },
+    chronicAbsenteeism: { higher: false },
+    medianIncome:       { higher: true }
   };
 
   const extremes = {};
@@ -512,15 +560,23 @@ function renderComparePanel() {
           <span class="cmp-v${cls('math', math)}">${math !== null ? math + '%' : '—'}</span>
         </div>
         <div class="cmp-row">
+          <span class="cmp-k">Graduation Rate</span>
+          <span class="cmp-v${cls('graduationRate', sc.graduationRate)}">${sc.graduationRate !== null && sc.graduationRate !== undefined ? sc.graduationRate + '%' : '—'}</span>
+        </div>
+        <div class="cmp-row">
+          <span class="cmp-k">Chronic Absenteeism</span>
+          <span class="cmp-v${cls('chronicAbsenteeism', sc.chronicAbsenteeism)}">${sc.chronicAbsenteeism !== null && sc.chronicAbsenteeism !== undefined ? sc.chronicAbsenteeism + '%' : '—'}</span>
+        </div>
+        <div class="cmp-row">
           <span class="cmp-k">Median Income</span>
           <span class="cmp-v${cls('medianIncome', sc.medianIncome)}">${sc.medianIncome ? '$' + sc.medianIncome.toLocaleString() : '—'}</span>
         </div>
         <div class="cmp-row">
           <span class="cmp-k">English Learners</span>
-          <span class="cmp-v">${sc.englishLearners !== null ? sc.englishLearners + '%' : '—'}</span>
+          <span class="cmp-v">${sc.englishLearners !== null && sc.englishLearners !== undefined ? sc.englishLearners + '%' : '—'}</span>
         </div>
         <div class="cmp-row">
-          <span class="cmp-k">Attendance</span>
+          <span class="cmp-k">Attendance Rate</span>
           <span class="cmp-v">${sc.attendance ? sc.attendance + '%' : '—'}</span>
         </div>
 
