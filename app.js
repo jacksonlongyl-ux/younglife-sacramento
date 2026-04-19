@@ -16,6 +16,12 @@ const DEMO_COLORS = {
   other:     '#94a3b8'
 };
 
+const PROGRESS_STEPS = [
+  { key: 'exploring',        label: 'Exploring' },
+  { key: 'leader_identified', label: 'Leader Identified' },
+  { key: 'club_launched',    label: 'Club Launched' }
+];
+
 // ── STATE ─────────────────────────────────────────────────────────────────
 
 // CA DOE ArcGIS service — 2024-25 school district boundaries (all Sacramento County)
@@ -25,23 +31,25 @@ const DISTRICT_API = 'https://services3.arcgis.com/fdvHcZVgB2QSRNkL/arcgis/rest/
 
 let map;
 let leafletMarkers  = {};
-let boundaryLayer   = null;   // L.geoJSON layer for district polygons
-let districtGeoJSON = null;   // cached fetch result
+let boundaryLayer   = null;
+let districtGeoJSON = null;
 let boundariesOn    = false;
 let activeFilter    = 'all';
+let searchQuery     = '';
 let openSchoolId    = null;
 let compareList     = [];
 let comparePanelOpen = false;
-let activeSchools   = YL_SCHOOLS; // may be replaced by Sheets data
+let activeSchools   = YL_SCHOOLS;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
   initMap();
-  await loadSchoolData();   // try Sheets first, fall back to built-in
+  await loadSchoolData();
   plotSchools();
   wireControls();
   updateHeaderStats();
+  updateReachCounter();
 });
 
 // ── GOOGLE SHEETS SYNC ────────────────────────────────────────────────────
@@ -60,16 +68,19 @@ async function loadSchoolData() {
       const o = {};
       headers.forEach((h, i) => o[h] = row[i] ? row[i].trim() : '');
       return {
-        id:            Number(o.id),
-        name:          o.name,
-        shortName:     o.shortName || o.name,
-        type:          o.type,
-        status:        o.status,
-        lat:           Number(o.lat),
-        lng:           Number(o.lng),
-        district:      o.district,
-        grades:        o.grades,
-        address:       o.address,
+        id:                  Number(o.id),
+        name:                o.name,
+        shortName:           o.shortName || o.name,
+        type:                o.type,
+        status:              o.status,
+        progress:            o.progress || (o.status === 'existing' ? 'active' : 'not_started'),
+        notes:               o.notes || '',
+        photoUrl:            o.photoUrl || '',
+        lat:                 Number(o.lat),
+        lng:                 Number(o.lng),
+        district:            o.district,
+        grades:              o.grades,
+        address:             o.address,
         enrollment:          o.enrollment          ? Number(o.enrollment)          : null,
         frpm:                o.frpm                ? Number(o.frpm)                : null,
         attendance:          o.attendance          ? Number(o.attendance)          : null,
@@ -118,24 +129,24 @@ function parseCSV(text) {
   });
 }
 
+// ── MAP INIT ──────────────────────────────────────────────────────────────
+
 function initMap() {
   map = L.map('map', {
-    center: [38.52, -121.35],
-    zoom: 11,
+    center: MAP_CENTER,
+    zoom: MAP_ZOOM,
     zoomControl: false,
     attributionControl: true
   });
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  // CartoDB Positron — clean, gray, free
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
   }).addTo(map);
 
-  // Close sidebar when clicking map background
   map.on('click', () => closeSidebar());
 }
 
@@ -190,12 +201,13 @@ function refreshMarkerIcon(school) {
 
 function showTooltip(e, school) {
   const el = document.getElementById('tooltip');
-  const statusText = school.status === 'existing' ? '✓ Existing YL' : '◎ Target School';
+  const statusText = school.status === 'existing' ? '✓ Active YL' : '◎ Target School';
   const enrollText = school.enrollment ? `${school.enrollment.toLocaleString()} students` : '';
+  const progressLabel = progressText(school);
 
   el.innerHTML = `
     <div class="t-name">${school.shortName}</div>
-    <div class="t-sub">${statusText}</div>
+    <div class="t-sub">${statusText}${progressLabel ? ' · ' + progressLabel : ''}</div>
     <div class="t-sub">${school.district}</div>
     ${enrollText ? `<div class="t-sub">${enrollText}</div>` : ''}
   `;
@@ -211,15 +223,25 @@ function hideTooltip() {
   document.getElementById('tooltip').style.display = 'none';
 }
 
+function progressText(school) {
+  if (school.status === 'existing') return '';
+  const map = {
+    not_started:      '',
+    exploring:        'Exploring',
+    leader_identified:'Leader Identified',
+    club_launched:    'Club Launched'
+  };
+  return map[school.progress] || '';
+}
+
 // ── SIDEBAR ───────────────────────────────────────────────────────────────
 
 function openSidebar(school) {
   const prev = openSchoolId;
   openSchoolId = school.id;
 
-  // Reset previous marker
   if (prev && prev !== school.id) {
-    const prevSchool = YL_SCHOOLS.find(s => s.id === prev);
+    const prevSchool = activeSchools.find(s => s.id === prev);
     if (prevSchool) refreshMarkerIcon(prevSchool);
   }
   refreshMarkerIcon(school);
@@ -227,13 +249,13 @@ function openSidebar(school) {
   document.getElementById('sidebarContent').innerHTML = buildSidebarHTML(school);
   document.getElementById('sidebar').classList.add('open');
 
-  // Wire compare button
   document.getElementById('addCmpBtn').addEventListener('click', () => toggleCompare(school));
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
 }
 
 function closeSidebar() {
   if (!openSchoolId) return;
-  const prev = YL_SCHOOLS.find(s => s.id === openSchoolId);
+  const prev = activeSchools.find(s => s.id === openSchoolId);
   openSchoolId = null;
   if (prev) refreshMarkerIcon(prev);
   document.getElementById('sidebar').classList.remove('open');
@@ -251,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function buildSidebarHTML(sc) {
   const inCmp = compareList.some(s => s.id === sc.id);
 
-  // Type badge
   const typeBadge = (() => {
     if (sc.type === 'HS')      return `<span class="badge b-hs">High School</span>`;
     if (sc.type === 'MS')      return `<span class="badge b-ms">Middle School</span>`;
@@ -260,29 +281,33 @@ function buildSidebarHTML(sc) {
   })();
 
   const statusBadge = sc.status === 'existing'
-    ? `<span class="badge b-existing">✓ Existing YL</span>`
+    ? `<span class="badge b-existing">✓ Active YL</span>`
     : `<span class="badge b-target">◎ Target School</span>`;
 
   const gradesBadge = sc.grades && sc.grades !== 'College'
     ? `<span class="badge b-hs" style="background:#f1f5f9;color:#475569">Grades ${sc.grades}</span>`
     : '';
 
-  // Stats
   const enrollVal = sc.enrollment ? sc.enrollment.toLocaleString() : '—';
   const frpmVal   = sc.frpm   !== null ? `${sc.frpm}%`   : '—';
   const elaVal    = sc.testScores.ela  !== null ? `${sc.testScores.ela}%`  : '—';
   const mathVal   = sc.testScores.math !== null ? `${sc.testScores.math}%` : '—';
 
-  const frpmColor  = colorFRPM(sc.frpm);
-  const elaColor   = colorScore(sc.testScores.ela);
-  const mathColor  = colorScore(sc.testScores.math);
+  const frpmColor = colorFRPM(sc.frpm);
+  const elaColor  = colorScore(sc.testScores.ela);
+  const mathColor = colorScore(sc.testScores.math);
 
   return `
+    ${photoSection(sc)}
+
     <div class="sc-header">
       <div class="sc-badges">${typeBadge}${statusBadge}${gradesBadge}</div>
       <div class="sc-name">${sc.name}</div>
       <div class="sc-district">${sc.district}</div>
     </div>
+
+    ${sc.status === 'target' ? readinessStepper(sc) : ''}
+    ${sc.notes ? notesSection(sc.notes) : ''}
 
     <div class="stats-strip">
       <div class="stat-cell">
@@ -314,9 +339,52 @@ function buildSidebarHTML(sc) {
     </button>
 
     <div class="data-note">
-      Data: CA Dept. of Education 2022–23 · US Census ACS estimates · Figures are approximate and for planning purposes.
+      Data: CA Dept. of Education SARC 2023–24 · CAASPP 2023–24 · EdData.org · Figures are approximate and for planning purposes.
     </div>
   `;
+}
+
+function photoSection(sc) {
+  const initials = sc.shortName.split(' ').map(w => w[0]).join('').slice(0, 3);
+  if (sc.photoUrl) {
+    return `<div class="sc-photo" style="background-image:url('${sc.photoUrl}')"></div>`;
+  }
+  return `<div class="sc-photo sc-photo-placeholder"><span>${initials}</span></div>`;
+}
+
+function readinessStepper(sc) {
+  const prog = sc.progress || 'not_started';
+  const stepOrder = ['exploring', 'leader_identified', 'club_launched'];
+  const currentIdx = stepOrder.indexOf(prog);
+
+  const steps = PROGRESS_STEPS.map((step, i) => {
+    const done   = i < currentIdx;
+    const active = i === currentIdx;
+    const cls    = done ? 'done' : active ? 'active' : 'pending';
+    return `<div class="rs-step ${cls}">
+      <div class="rs-dot"></div>
+      <span>${step.label}</span>
+    </div>${i < PROGRESS_STEPS.length - 1 ? '<div class="rs-line' + (done ? ' done' : '') + '"></div>' : ''}`;
+  }).join('');
+
+  const label = prog === 'not_started'
+    ? 'No active steps yet — this school is on our radar.'
+    : `Currently: <strong>${PROGRESS_STEPS.find(s => s.key === prog)?.label || prog}</strong>`;
+
+  return `<div class="readiness-wrap">
+    <div class="readiness-label">Ministry Progress</div>
+    ${prog !== 'not_started' ? `<div class="rs-track">${steps}</div>` : ''}
+    <div class="readiness-sublabel">${label}</div>
+  </div>`;
+}
+
+function notesSection(notes) {
+  return `<div class="notes-callout">
+    <div class="notes-icon">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg>
+    </div>
+    <p>${notes}</p>
+  </div>`;
 }
 
 function missionSection(sc) {
@@ -342,7 +410,7 @@ function missionSection(sc) {
   if (items.length === 0) return '';
 
   return `<div class="section">
-    <div class="sec-title">Mission Context</div>
+    <div class="sec-title">School Context</div>
     <div class="mission-grid">
       ${items.map(({ label, value, color }) => `
         <div class="mission-cell">
@@ -432,10 +500,10 @@ function incomeSection(income) {
 
 function detailSection(sc) {
   const rows = [];
-  if (sc.address)                                        rows.push(['Address', sc.address]);
-  if (sc.attendance)                                     rows.push(['Attendance Rate', `${sc.attendance}%`]);
-  if (sc.englishLearners !== null && sc.englishLearners !== undefined) rows.push(['English Learners', `${sc.englishLearners}%`]);
-  if (sc.specialEd !== null && sc.specialEd !== undefined)             rows.push(['Special Education', `${sc.specialEd}%`]);
+  if (sc.address)                rows.push(['Address', sc.address]);
+  if (sc.attendance)             rows.push(['Attendance Rate', `${sc.attendance}%`]);
+  if (sc.englishLearners != null) rows.push(['English Learners', `${sc.englishLearners}%`]);
+  if (sc.specialEd != null)      rows.push(['Special Education', `${sc.specialEd}%`]);
 
   return `<div class="section">
     <div class="sec-title">School Details</div>
@@ -445,6 +513,39 @@ function detailSection(sc) {
         <span class="info-v">${v}</span>
       </div>`).join('')}
   </div>`;
+}
+
+// ── REACH COUNTER ─────────────────────────────────────────────────────────
+
+function updateReachCounter() {
+  const existing = activeSchools.filter(s => s.status === 'existing');
+  const targets  = activeSchools.filter(s => s.status === 'target');
+
+  const existingStudents = existing.reduce((sum, s) => sum + (s.enrollment || 0), 0);
+  const targetStudents   = targets.reduce((sum, s)  => sum + (s.enrollment || 0), 0);
+
+  document.getElementById('reachExistingCount').textContent    = existing.length;
+  document.getElementById('reachExistingStudents').textContent = existingStudents.toLocaleString();
+  document.getElementById('reachTargetCount').textContent      = targets.length;
+  document.getElementById('reachTargetStudents').textContent   = targetStudents.toLocaleString();
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────────
+
+function applySearch(query) {
+  searchQuery = query.toLowerCase().trim();
+  const clearBtn = document.getElementById('searchClear');
+  clearBtn.style.display = searchQuery ? 'flex' : 'none';
+  applyFilter();
+
+  if (searchQuery) {
+    const match = activeSchools.find(s =>
+      s.name.toLowerCase().includes(searchQuery) ||
+      s.shortName.toLowerCase().includes(searchQuery) ||
+      s.district.toLowerCase().includes(searchQuery)
+    );
+    if (match) map.setView([match.lat, match.lng], 14);
+  }
 }
 
 // ── COMPARE ───────────────────────────────────────────────────────────────
@@ -477,7 +578,7 @@ function updateCompareCounter() {
   const n = compareList.length;
   const btn = document.getElementById('compareBtn');
   btn.disabled = n < 2;
-  btn.textContent = n >= 2 ? `Compare ${n} Schools` : n === 1 ? 'Compare 1 School' : 'Compare Schools';
+  btn.textContent = n >= 2 ? `Compare ${n}` : n === 1 ? 'Compare 1' : 'Compare';
 }
 
 function toggleComparePanel() {
@@ -498,7 +599,6 @@ function renderComparePanel() {
     return;
   }
 
-  // Compute best/worst per metric (for highlighting)
   const metrics = {
     enrollment:         { higher: true },
     frpm:               { higher: false },
@@ -534,52 +634,34 @@ function renderComparePanel() {
   body.innerHTML = compareList.map(sc => {
     const ela  = sc.testScores.ela;
     const math = sc.testScores.math;
+    const progressBadge = sc.status === 'target' && sc.progress && sc.progress !== 'not_started'
+      ? `<div style="font-size:10px;color:#d97706;margin-bottom:8px">◉ ${progressText(sc)}</div>`
+      : '';
 
     return `
       <div class="cmp-card">
         <div class="cmp-card-name">${sc.shortName}</div>
         <div class="cmp-card-dist">${sc.district}</div>
-        <span class="badge ${sc.status === 'existing' ? 'b-existing' : 'b-target'}" style="font-size:9px;margin-bottom:10px;display:inline-block">
-          ${sc.status === 'existing' ? 'Existing YL' : 'Target'}
+        <span class="badge ${sc.status === 'existing' ? 'b-existing' : 'b-target'}" style="font-size:9px;margin-bottom:6px;display:inline-block">
+          ${sc.status === 'existing' ? 'Active YL' : 'Target'}
         </span>
-
-        <div class="cmp-row">
-          <span class="cmp-k">Enrollment</span>
-          <span class="cmp-v${cls('enrollment', sc.enrollment)}">${sc.enrollment ? sc.enrollment.toLocaleString() : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Free Lunch %</span>
-          <span class="cmp-v${cls('frpm', sc.frpm)}">${sc.frpm !== null ? sc.frpm + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">ELA Proficiency</span>
-          <span class="cmp-v${cls('ela', ela)}">${ela !== null ? ela + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Math Proficiency</span>
-          <span class="cmp-v${cls('math', math)}">${math !== null ? math + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Graduation Rate</span>
-          <span class="cmp-v${cls('graduationRate', sc.graduationRate)}">${sc.graduationRate !== null && sc.graduationRate !== undefined ? sc.graduationRate + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Chronic Absenteeism</span>
-          <span class="cmp-v${cls('chronicAbsenteeism', sc.chronicAbsenteeism)}">${sc.chronicAbsenteeism !== null && sc.chronicAbsenteeism !== undefined ? sc.chronicAbsenteeism + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Median Income</span>
-          <span class="cmp-v${cls('medianIncome', sc.medianIncome)}">${sc.medianIncome ? '$' + sc.medianIncome.toLocaleString() : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">English Learners</span>
-          <span class="cmp-v">${sc.englishLearners !== null && sc.englishLearners !== undefined ? sc.englishLearners + '%' : '—'}</span>
-        </div>
-        <div class="cmp-row">
-          <span class="cmp-k">Attendance Rate</span>
-          <span class="cmp-v">${sc.attendance ? sc.attendance + '%' : '—'}</span>
-        </div>
-
+        ${progressBadge}
+        <div class="cmp-row"><span class="cmp-k">Enrollment</span>
+          <span class="cmp-v${cls('enrollment', sc.enrollment)}">${sc.enrollment ? sc.enrollment.toLocaleString() : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Free Lunch %</span>
+          <span class="cmp-v${cls('frpm', sc.frpm)}">${sc.frpm !== null ? sc.frpm + '%' : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">ELA Proficiency</span>
+          <span class="cmp-v${cls('ela', ela)}">${ela !== null ? ela + '%' : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Math Proficiency</span>
+          <span class="cmp-v${cls('math', math)}">${math !== null ? math + '%' : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Graduation Rate</span>
+          <span class="cmp-v${cls('graduationRate', sc.graduationRate)}">${sc.graduationRate != null ? sc.graduationRate + '%' : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Chronic Absent.</span>
+          <span class="cmp-v${cls('chronicAbsenteeism', sc.chronicAbsenteeism)}">${sc.chronicAbsenteeism != null ? sc.chronicAbsenteeism + '%' : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Median Income</span>
+          <span class="cmp-v${cls('medianIncome', sc.medianIncome)}">${sc.medianIncome ? '$' + sc.medianIncome.toLocaleString() : '—'}</span></div>
+        <div class="cmp-row"><span class="cmp-k">Attendance</span>
+          <span class="cmp-v">${sc.attendance ? sc.attendance + '%' : '—'}</span></div>
         <button class="cmp-remove-btn" onclick="removeFromCompare(${sc.id})">Remove</button>
       </div>
     `;
@@ -599,9 +681,17 @@ function applyFilter() {
   activeSchools.forEach(sc => {
     const marker = leafletMarkers[sc.id];
     if (!marker) return;
-    const show = activeFilter === 'all'
+
+    const matchesFilter = activeFilter === 'all'
       || (activeFilter === 'existing' && sc.status === 'existing')
       || (activeFilter === 'target'   && sc.status === 'target');
+
+    const matchesSearch = !searchQuery
+      || sc.name.toLowerCase().includes(searchQuery)
+      || sc.shortName.toLowerCase().includes(searchQuery)
+      || sc.district.toLowerCase().includes(searchQuery);
+
+    const show = matchesFilter && matchesSearch;
     if (show && !map.hasLayer(marker)) marker.addTo(map);
     if (!show && map.hasLayer(marker)) map.removeLayer(marker);
   });
@@ -610,7 +700,6 @@ function applyFilter() {
 // ── CONTROLS WIRING ───────────────────────────────────────────────────────
 
 function wireControls() {
-  // Filter buttons
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -620,24 +709,30 @@ function wireControls() {
     });
   });
 
-  // Boundary zones toggle
   document.getElementById('boundaryBtn').addEventListener('click', toggleBoundaries);
-
-  // Compare toggle
   document.getElementById('compareBtn').addEventListener('click', toggleComparePanel);
 
-  // Compare panel close
   document.getElementById('cmpCloseBtn').addEventListener('click', () => {
     comparePanelOpen = false;
     document.getElementById('comparePanel').classList.remove('open');
   });
 
-  // Compare panel clear
   document.getElementById('cmpClearBtn').addEventListener('click', () => {
     compareList = [];
     updateCompareCounter();
     renderComparePanel();
     if (openSchoolId) updateCompareBtnState(openSchoolId);
+  });
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', e => applySearch(e.target.value));
+  searchInput.addEventListener('keydown', e => { if (e.key === 'Escape') { searchInput.value = ''; applySearch(''); } });
+
+  document.getElementById('searchClear').addEventListener('click', () => {
+    searchInput.value = '';
+    applySearch('');
+    searchInput.focus();
   });
 }
 
@@ -662,11 +757,9 @@ function updateHeaderStats() {
   const target   = activeSchools.filter(s => s.status === 'target').length;
   document.getElementById('statExisting').textContent = existing;
   document.getElementById('statTarget').textContent   = target;
-  document.getElementById('statTotal').textContent    = existing + target;
 }
 
 // ── SCHOOL BOUNDARY ZONES ─────────────────────────────────────────────────
-// Fetches real 2024-25 district boundaries from CA Dept. of Education GIS.
 
 async function toggleBoundaries() {
   boundariesOn = !boundariesOn;
@@ -682,7 +775,6 @@ async function toggleBoundaries() {
   btn.classList.add('active');
   btn.textContent = 'Loading…';
 
-  // Fetch once per session, then cache
   if (!districtGeoJSON) {
     try {
       const res = await fetch(DISTRICT_API);
@@ -698,14 +790,22 @@ async function toggleBoundaries() {
     }
   }
 
-  // Districts that have at least one existing YL school
   const existingDistricts = new Set(
     activeSchools.filter(s => s.status === 'existing').map(s => s.district)
   );
 
-  // Helper: does the API district name match a school's district string?
   function districtHasExisting(apiName) {
     return [...existingDistricts].some(d => d.includes(apiName) || apiName.includes(d.split(' ')[0]));
+  }
+
+  function districtSummary(apiName) {
+    const schools = activeSchools.filter(s =>
+      s.district.toLowerCase().includes(apiName.toLowerCase().split(' ')[0].toLowerCase())
+    );
+    const active  = schools.filter(s => s.status === 'existing');
+    const targets = schools.filter(s => s.status === 'target');
+    const totalEnroll = active.reduce((sum, s) => sum + (s.enrollment || 0), 0);
+    return { schools, active, targets, totalEnroll };
   }
 
   boundaryLayer = L.geoJSON(districtGeoJSON, {
@@ -723,10 +823,34 @@ async function toggleBoundaries() {
     onEachFeature(feature, layer) {
       const name = feature.properties.DistrictName;
       const hasExisting = districtHasExisting(name);
+
       layer.bindTooltip(
         `<strong>${name}</strong><br>${hasExisting ? '✓ Active YL presence' : '◎ Target district'}`,
         { sticky: true, className: 'district-tip' }
       );
+
+      layer.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        const { active, targets, totalEnroll } = districtSummary(name);
+
+        const activeList  = active.map(s => `<li>✓ ${s.shortName}</li>`).join('');
+        const targetList  = targets.map(s => {
+          const prog = progressText(s);
+          return `<li>◎ ${s.shortName}${prog ? ' <em>(' + prog + ')</em>' : ''}</li>`;
+        }).join('');
+
+        L.popup({ maxWidth: 280 })
+          .setLatLng(e.latlng)
+          .setContent(`
+            <div class="district-popup">
+              <div class="dp-title">${name}</div>
+              ${active.length ? `<div class="dp-section"><strong>Active YL (${active.length})</strong><ul>${activeList}</ul>${totalEnroll ? `<div class="dp-reach">${totalEnroll.toLocaleString()} students reached</div>` : ''}</div>` : ''}
+              ${targets.length ? `<div class="dp-section"><strong>Target Schools (${targets.length})</strong><ul>${targetList}</ul></div>` : ''}
+              ${!active.length && !targets.length ? '<div class="dp-section" style="color:#9ca3af">No YL schools in this district yet.</div>' : ''}
+            </div>
+          `)
+          .openOn(map);
+      });
     }
   }).addTo(map);
 

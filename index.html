@@ -14,8 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <!-- App styles -->
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="styles.css?v=7">
 
   <style>
     html, body { height: 100%; display: flex; flex-direction: column; }
@@ -36,9 +35,20 @@
 
   <div class="divider"></div>
 
+  <!-- Search -->
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="9" cy="9" r="6"/><path d="M15 15l3 3"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Search schools…" autocomplete="off">
+    <button id="searchClear" class="search-clear" title="Clear">&times;</button>
+  </div>
+
+  <div class="divider"></div>
+
   <!-- Filter buttons -->
   <div class="filters" id="filterGroup">
-    <button class="filter-btn active" data-filter="all">All Schools</button>
+    <button class="filter-btn active" data-filter="all">All</button>
     <button class="filter-btn"        data-filter="existing">Existing</button>
     <button class="filter-btn"        data-filter="target">Target</button>
   </div>
@@ -47,26 +57,22 @@
   <button id="boundaryBtn" class="boundary-btn">School Zones</button>
 
   <!-- Compare button -->
-  <button id="compareBtn" disabled>Compare Schools</button>
+  <button id="compareBtn" disabled>Compare</button>
 
   <!-- Sheets sync indicator -->
   <div id="syncStatus" class="sync-status hidden" title="Live sync from Google Sheets">
-    <span class="sync-dot"></span> Live Data
+    <span class="sync-dot"></span> Live
   </div>
 
   <!-- Live summary stats -->
   <div class="header-stats">
     <div class="hstat">
       <span class="n" id="statExisting">—</span>
-      <span class="l">Existing</span>
+      <span class="l">Active</span>
     </div>
     <div class="hstat">
       <span class="n" id="statTarget">—</span>
       <span class="l">Target</span>
-    </div>
-    <div class="hstat">
-      <span class="n" id="statTotal">—</span>
-      <span class="l">Total</span>
     </div>
   </div>
 
@@ -74,15 +80,28 @@
   <div class="legend">
     <div class="leg-item">
       <div class="leg-dot existing"></div>
-      <span>Existing — Where we are</span>
+      <span>Existing</span>
     </div>
     <div class="leg-item">
       <div class="leg-dot target"></div>
-      <span>Target — Where we are going</span>
+      <span>Target</span>
     </div>
   </div>
 
 </header>
+
+<!-- ── REACH COUNTER BAR ────────────────────────────────────────────────── -->
+<div id="reachBar">
+  <span class="reach-existing">
+    <strong id="reachExistingCount">—</strong> active schools ·
+    <strong id="reachExistingStudents">—</strong> students currently reached
+  </span>
+  <span class="reach-sep">→</span>
+  <span class="reach-target">
+    launch all <strong id="reachTargetCount">—</strong> targets ·
+    <strong id="reachTargetStudents">—</strong> additional students
+  </span>
+</div>
 
 <!-- ── MAP + OVERLAYS ──────────────────────────────────────────────────── -->
 <div id="map-wrap">
@@ -92,7 +111,13 @@
 
   <!-- ── SIDEBAR ─────────────────────────────────────────────────────── -->
   <div id="sidebar">
-    <button id="sidebarClose" title="Close">&times;</button>
+    <div class="sidebar-actions">
+      <button id="printBtn" class="sidebar-action-btn" title="Print school card">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M5 4v3H4a2 2 0 00-2 2v5a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
+        Print
+      </button>
+      <button id="sidebarClose" title="Close">&times;</button>
+    </div>
     <div id="sidebarContent"></div>
   </div>
 
@@ -117,11 +142,27 @@
 <!-- ── HOVER TOOLTIP ───────────────────────────────────────────────────── -->
 <div id="tooltip"></div>
 
+<!-- ── PRINT STYLES ─────────────────────────────────────────────────────── -->
+<style>
+@media print {
+  #header, #reachBar, #map-wrap > #map, #comparePanel, #tooltip,
+  .sidebar-actions, .add-cmp-btn, .data-note { display: none !important; }
+  body, html { height: auto; overflow: visible; }
+  #map-wrap { display: block; height: auto; }
+  #sidebar {
+    position: static !important; transform: none !important;
+    width: 100% !important; height: auto !important;
+    box-shadow: none !important; overflow: visible !important;
+  }
+  .section { break-inside: avoid; }
+}
+</style>
+
 <!-- ── SCRIPTS ─────────────────────────────────────────────────────────── -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="config.js?v=6"></script>
-<script src="data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="data.js?v=7"></script>
+<script src="app.js?v=7"></script>
 
 </body>
 </html>
