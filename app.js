@@ -18,10 +18,10 @@ const DEMO_COLORS = {
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
-// CA DOE ArcGIS service — 2024-25 school district boundaries
+// CA DOE ArcGIS service — 2024-25 school district boundaries (all Sacramento County)
 const DISTRICT_API = 'https://services3.arcgis.com/fdvHcZVgB2QSRNkL/arcgis/rest/services/SchoolDistrictAreas2425/FeatureServer/0/query'
-  + '?where=CountyName%3D%27Sacramento%27+AND+DistrictName+IN+(%27Sacramento+City+Unified%27%2C%27Elk+Grove+Unified%27%2C%27Natomas+Unified%27%2C%27San+Juan+Unified%27%2C%27Folsom-Cordova+Unified%27)'
-  + '&outFields=DistrictName&outSR=4326&f=geojson';
+  + '?where=CountyName%3D%27Sacramento%27'
+  + '&outFields=DistrictName&outSR=4326&f=geojson&resultRecordCount=100';
 
 let map;
 let leafletMarkers  = {};
