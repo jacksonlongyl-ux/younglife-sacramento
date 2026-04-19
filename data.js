@@ -370,7 +370,7 @@ const YL_SCHOOLS = [
     name: "Pleasant Grove High School",
     shortName: "Pleasant Grove HS",
     type: "HS",
-    status: "target",
+    status: "existing",
     lat: 38.4383,
     lng: -121.3819,
     district: "Elk Grove Unified School District",

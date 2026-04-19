@@ -16,9 +16,15 @@ const DEMO_COLORS = {
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
+// CA DOE ArcGIS service — 2024-25 school district boundaries
+const DISTRICT_API = 'https://services3.arcgis.com/fdvHcZVgB2QSRNkL/arcgis/rest/services/SchoolDistrictAreas2425/FeatureServer/0/query'
+  + '?where=CountyName%3D%27Sacramento%27+AND+DistrictName+IN+(%27Sacramento+City+Unified%27%2C%27Elk+Grove+Unified%27%2C%27Natomas+Unified%27%2C%27San+Juan+Unified%27%2C%27Folsom-Cordova+Unified%27)'
+  + '&outFields=DistrictName&outSR=4326&f=geojson';
+
 let map;
 let leafletMarkers  = {};
-let boundaryLayers  = {};   // id → L.polygon
+let boundaryLayer   = null;   // L.geoJSON layer for district polygons
+let districtGeoJSON = null;   // cached fetch result
 let boundariesOn    = false;
 let activeFilter    = 'all';
 let openSchoolId    = null;
@@ -604,34 +610,69 @@ function updateHeaderStats() {
 }
 
 // ── SCHOOL BOUNDARY ZONES ─────────────────────────────────────────────────
-// Draws an approximate attendance zone circle for each school.
-// Replace with real GeoJSON polygons from your school districts when available.
+// Fetches real 2024-25 district boundaries from CA Dept. of Education GIS.
 
-function toggleBoundaries() {
+async function toggleBoundaries() {
   boundariesOn = !boundariesOn;
   const btn = document.getElementById('boundaryBtn');
 
-  if (boundariesOn) {
-    btn.classList.add('active');
-    activeSchools.forEach(sc => {
-      if (boundaryLayers[sc.id]) { boundaryLayers[sc.id].addTo(map); return; }
-      // Radius varies by school type — HS zones are larger than MS zones
-      const radiusMeters = sc.type === 'HS' ? 2200 : 1400;
-      const color = sc.status === 'existing' ? NAVY : RED;
-      const circle = L.circle([sc.lat, sc.lng], {
-        radius:      radiusMeters,
-        color:       color,
-        fillColor:   color,
-        fillOpacity: 0.07,
-        weight:      2,
-        dashArray:   '6 4',
-        opacity:     0.5
-      }).addTo(map);
-      circle.bindTooltip(`${sc.shortName} — approx. attendance zone`, { sticky: true });
-      boundaryLayers[sc.id] = circle;
-    });
-  } else {
+  if (!boundariesOn) {
     btn.classList.remove('active');
-    Object.values(boundaryLayers).forEach(l => map.removeLayer(l));
+    btn.textContent = 'School Zones';
+    if (boundaryLayer) map.removeLayer(boundaryLayer);
+    return;
   }
+
+  btn.classList.add('active');
+  btn.textContent = 'Loading…';
+
+  // Fetch once per session, then cache
+  if (!districtGeoJSON) {
+    try {
+      const res = await fetch(DISTRICT_API);
+      if (!res.ok) throw new Error(res.status);
+      districtGeoJSON = await res.json();
+    } catch (err) {
+      console.error('District boundary fetch failed:', err);
+      btn.textContent = 'School Zones';
+      btn.classList.remove('active');
+      boundariesOn = false;
+      alert('Could not load district boundaries. Check your internet connection and try again.');
+      return;
+    }
+  }
+
+  // Districts that have at least one existing YL school
+  const existingDistricts = new Set(
+    activeSchools.filter(s => s.status === 'existing').map(s => s.district)
+  );
+
+  // Helper: does the API district name match a school's district string?
+  function districtHasExisting(apiName) {
+    return [...existingDistricts].some(d => d.includes(apiName) || apiName.includes(d.split(' ')[0]));
+  }
+
+  boundaryLayer = L.geoJSON(districtGeoJSON, {
+    style(feature) {
+      const hasExisting = districtHasExisting(feature.properties.DistrictName);
+      return {
+        color:       hasExisting ? NAVY : RED,
+        fillColor:   hasExisting ? NAVY : RED,
+        fillOpacity: 0.07,
+        weight:      2.5,
+        dashArray:   '7 4',
+        opacity:     0.75
+      };
+    },
+    onEachFeature(feature, layer) {
+      const name = feature.properties.DistrictName;
+      const hasExisting = districtHasExisting(name);
+      layer.bindTooltip(
+        `<strong>${name}</strong><br>${hasExisting ? '✓ Active YL presence' : '◎ Target district'}`,
+        { sticky: true, className: 'district-tip' }
+      );
+    }
+  }).addTo(map);
+
+  btn.textContent = 'School Zones';
 }
