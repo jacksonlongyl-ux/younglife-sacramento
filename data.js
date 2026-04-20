@@ -599,6 +599,50 @@ const YL_SCHOOLS = [
     englishLearners: 10,
     specialEd: 9,
     medianIncome: 84000
+  },
+
+  // ── CAPERNAUM LOCATIONS ────────────────────────────────────────────────────
+
+  {
+    id: 24,
+    name: "Capernaum Elk Grove",
+    shortName: "Capernaum EG",
+    type: "Capernaum", status: "existing",
+    progress: "active",
+    notes: "Young Life Capernaum ministry for adolescents with special needs — active in the Elk Grove area.",
+    photoUrl: "",
+    staffPerson: "",
+    lat: 38.4150, lng: -121.3850,
+    district: "Elk Grove Area",
+    grades: "",
+    address: "Elk Grove, CA",
+    enrollment: null, frpm: null, attendance: null,
+    chronicAbsenteeism: null, suspensionRate: null,
+    graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 0, asian: 0, black: 0, white: 0, filipino: 0, twoOrMore: 0, other: 0 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: null
+  },
+
+  {
+    id: 25,
+    name: "Capernaum Folsom",
+    shortName: "Capernaum Folsom",
+    type: "Capernaum", status: "existing",
+    progress: "active",
+    notes: "Young Life Capernaum ministry for adolescents with special needs — active in the Folsom area.",
+    photoUrl: "",
+    staffPerson: "",
+    lat: 38.6780, lng: -121.1760,
+    district: "Folsom Area",
+    grades: "",
+    address: "Folsom, CA",
+    enrollment: null, frpm: null, attendance: null,
+    chronicAbsenteeism: null, suspensionRate: null,
+    graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 0, asian: 0, black: 0, white: 0, filipino: 0, twoOrMore: 0, other: 0 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: null
   }
 
 ];

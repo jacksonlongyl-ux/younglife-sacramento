@@ -10,7 +10,7 @@
 //
 // Leave SHEETS_URL as an empty string "" to use the built-in data instead.
 
-const SHEETS_URL = "";
+const SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR2wPLh9SKlqSML_ktSWgssEKr7HedkOJ318Kzui0t4mkBNmDxLIkHJfYvnY4Wm_fzPLtYCTTdWfB6R/pub?gid=0&single=true&output=csv";
 
 // ── Map defaults ──────────────────────────────────────────────────────────────
 const MAP_CENTER = [38.52, -121.38];

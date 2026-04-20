@@ -175,6 +175,15 @@ function plotSchools() {
 
 function buildIcon(school, selected) {
   const sel = selected ? ' sel' : '';
+  if (school.type === 'Capernaum') {
+    return L.divIcon({
+      className: '',
+      html: `<div class="mk-capernaum${sel}"><div class="pin"><span class="txt">C</span></div></div>`,
+      iconSize:   [34, 42],
+      iconAnchor: [17, 42],
+      popupAnchor:[0, -44]
+    });
+  }
   if (school.status === 'existing') {
     return L.divIcon({
       className: '',
@@ -281,15 +290,18 @@ function buildSidebarHTML(sc) {
   const inCmp = compareList.some(s => s.id === sc.id);
 
   const typeBadge = (() => {
-    if (sc.type === 'HS')      return `<span class="badge b-hs">High School</span>`;
-    if (sc.type === 'MS')      return `<span class="badge b-ms">Middle School</span>`;
-    if (sc.type === 'College') return `<span class="badge b-college">College / University</span>`;
+    if (sc.type === 'Capernaum') return `<span class="badge b-capernaum">Capernaum</span>`;
+    if (sc.type === 'HS')        return `<span class="badge b-hs">High School</span>`;
+    if (sc.type === 'MS')        return `<span class="badge b-ms">Middle School</span>`;
+    if (sc.type === 'College')   return `<span class="badge b-college">College / University</span>`;
     return `<span class="badge b-special">Special Program</span>`;
   })();
 
-  const statusBadge = sc.status === 'existing'
-    ? `<span class="badge b-existing">✓ Active YL</span>`
-    : `<span class="badge b-target">◎ Target School</span>`;
+  const statusBadge = sc.type === 'Capernaum'
+    ? `<span class="badge b-capernaum">✓ Active Ministry</span>`
+    : sc.status === 'existing'
+      ? `<span class="badge b-existing">✓ Active YL</span>`
+      : `<span class="badge b-target">◎ Target School</span>`;
 
   const gradesBadge = sc.grades && sc.grades !== 'College'
     ? `<span class="badge b-hs" style="background:#f1f5f9;color:#475569">Grades ${sc.grades}</span>`
@@ -730,8 +742,9 @@ function applyFilter() {
     if (!marker) return;
 
     const matchesFilter = activeFilter === 'all'
-      || (activeFilter === 'existing' && sc.status === 'existing')
-      || (activeFilter === 'target'   && sc.status === 'target');
+      || (activeFilter === 'existing'   && sc.status === 'existing' && sc.type !== 'Capernaum')
+      || (activeFilter === 'target'     && sc.status === 'target')
+      || (activeFilter === 'capernaum'  && sc.type === 'Capernaum');
 
     const matchesSearch = !searchQuery
       || sc.name.toLowerCase().includes(searchQuery)
