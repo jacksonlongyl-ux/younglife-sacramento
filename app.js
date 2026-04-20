@@ -76,6 +76,7 @@ async function loadSchoolData() {
         progress:            o.progress || (o.status === 'existing' ? 'active' : 'not_started'),
         notes:               o.notes || '',
         photoUrl:            o.photoUrl || '',
+        staffPerson:         o.staffPerson || '',
         lat:                 Number(o.lat),
         lng:                 Number(o.lng),
         district:            o.district,
@@ -304,6 +305,7 @@ function buildSidebarHTML(sc) {
       <div class="sc-badges">${typeBadge}${statusBadge}${gradesBadge}</div>
       <div class="sc-name">${sc.name}</div>
       <div class="sc-district">${sc.district}</div>
+      ${sc.staffPerson ? `<div class="sc-staff"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg> ${sc.staffPerson}</div>` : ''}
     </div>
 
     ${sc.status === 'target' ? readinessStepper(sc) : ''}
@@ -642,6 +644,7 @@ function renderComparePanel() {
       <div class="cmp-card">
         <div class="cmp-card-name">${sc.shortName}</div>
         <div class="cmp-card-dist">${sc.district}</div>
+        ${sc.staffPerson ? `<div class="cmp-card-staff">${sc.staffPerson}</div>` : ''}
         <span class="badge ${sc.status === 'existing' ? 'b-existing' : 'b-target'}" style="font-size:9px;margin-bottom:6px;display:inline-block">
           ${sc.status === 'existing' ? 'Active YL' : 'Target'}
         </span>

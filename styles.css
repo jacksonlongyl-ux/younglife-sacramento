@@ -361,7 +361,14 @@ body {
 .b-target   { background: #fee2e6; color: var(--red); }
 
 .sc-name     { font-size: 20px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-bottom: 3px; }
-.sc-district { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+.sc-district { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.sc-staff {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--navy);
+  background: #e0eaf4; border-radius: 20px;
+  padding: 3px 9px; margin-bottom: 12px;
+}
+.cmp-card-staff { font-size: 10px; color: var(--navy); font-weight: 600; margin-bottom: 8px; }
 
 /* ── READINESS STEPPER ───────────────────────────────────────────────────── */
 

@@ -1,76 +1,84 @@
-# Deploying to GitHub Pages (Free Hosting)
-
-Follow these steps once. After that, any changes you make to the files automatically go live.
+# Young Life Sacramento — Map Admin Guide
 
 ---
 
-## Step 1 — Create a free GitHub account
-Go to https://github.com and sign up (free).
+## How to update the map via Google Sheets
+
+Your Google Sheet is the admin panel. Sign in at sheets.google.com with your Google account — only people you share it with can edit.
+
+### Step 1 — Import the starter data (first time only)
+1. Open your Google Sheet
+2. Click **File → Import**
+3. Upload `schools-import.csv` from this folder
+4. Choose **Replace current sheet** → Import
 
 ---
 
-## Step 2 — Create a new repository
-1. Click the **+** button in the top right → **New repository**
-2. Name it: `younglife-sacramento`
-3. Set it to **Public**
-4. Do NOT check "Add a README"
-5. Click **Create repository**
+## Columns you own (edit these anytime)
+
+These are the columns you'll regularly update. Changes appear on the map within a minute.
+
+| Column | What it does | Example values |
+|---|---|---|
+| `staffPerson` | YL staff person assigned to this school | `Jackson Long` |
+| `progress` | Ministry readiness stage | See values below |
+| `notes` | Short blurb shown to donors on the school card | `We have a leader with strong ties here.` |
+| `status` | Whether YL is active or targeting this school | `existing` or `target` |
+| `photoUrl` | Link to a photo shown at the top of the sidebar | Paste any image URL |
+
+### Progress values (copy exactly)
+| Value | Meaning |
+|---|---|
+| `not_started` | On our radar, no active steps yet |
+| `exploring` | Initial conversations happening |
+| `leader_identified` | A leader is ready and engaged |
+| `club_launched` | Active club running |
+| `active` | Use this for existing YL schools |
 
 ---
 
-## Step 3 — Upload your files
-1. On the new repo page, click **uploading an existing file**
-2. Drag and drop ALL files from your `younglife-sacramento` folder:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `data.js`
-   - `config.js`
-3. Click **Commit changes**
+## Columns that are reference data (update if numbers are wrong)
+
+These come from public sources (CA Dept. of Education). Update them if you know a number is incorrect.
+
+`enrollment` · `frpm` · `attendance` · `chronicAbsenteeism` · `suspensionRate` · `graduationRate` · `ela` · `math` · `medianIncome`
 
 ---
 
-## Step 4 — Enable GitHub Pages
-1. Click **Settings** (tab at the top of your repo)
-2. Click **Pages** in the left sidebar
-3. Under "Branch", select **main** and click **Save**
-4. Wait 1-2 minutes
+## Columns you should NOT change
+
+These control where pins appear on the map and how schools are categorized. Only change if you're adding a new school.
+
+`id` · `lat` · `lng` · `name` · `shortName` · `type` · `district` · `grades` · `address`
 
 ---
 
-## Step 5 — Get your live URL
-Your map will be live at:
-`https://YOUR-GITHUB-USERNAME.github.io/younglife-sacramento/`
+## Adding a new school
 
-Share this link with donors and stakeholders — no login required.
-
----
-
-## Updating the map later
-When you want to change data or add schools:
-1. Edit `data.js` on your computer
-2. Go to your GitHub repo → click `data.js` → click the pencil icon
-3. Paste the updated content → click **Commit changes**
-4. The live map updates within 1 minute
+1. Add a new row at the bottom of the sheet
+2. Give it the next `id` number (e.g. 24)
+3. Fill in at minimum: `id`, `name`, `shortName`, `type`, `status`, `progress`, `lat`, `lng`, `district`, `grades`, `address`, `enrollment`
+4. Find lat/lng by right-clicking the school on Google Maps → "What's here?"
+5. Save — the map updates within a minute
 
 ---
 
-## Setting up Google Sheets sync (optional — live updates without touching code)
+## Hosting on GitHub Pages
 
-1. Create a Google Sheet with these column headers in row 1:
-   `id, name, shortName, type, status, lat, lng, district, grades, address, enrollment, frpm, attendance, hispanic, asian, black, white, other, ela, math, englishLearners, specialEd, medianIncome`
+### First time setup
+1. Go to github.com → sign in → New repository named `younglife-sacramento` (Public)
+2. Upload all files from this folder
+3. Settings → Pages → Branch: main → Save
+4. Live at: `https://YOUR-USERNAME.github.io/younglife-sacramento/`
 
-2. Fill in your school data (copy from data.js as a starting point)
+### Updating map code (not data)
+When code files change (app.js, styles.css, etc.):
+1. Go to your GitHub repo
+2. Click the file → pencil icon → paste new content → Commit changes
 
-3. In Google Sheets: **File → Share → Publish to web**
-   - Choose: Entire Document / Comma-separated values (.csv)
-   - Click **Publish** → copy the URL
-
-4. Open `config.js` and paste the URL:
-   ```
-   const SHEETS_URL = "https://docs.google.com/spreadsheets/d/YOUR-ID/pub?output=csv";
-   ```
-
-5. Save and upload `config.js` to GitHub
-
-Now anyone on your team can update school data directly in the Google Sheet and the map refreshes automatically.
+### Pushing from Terminal (if git is set up)
+```bash
+cd "/Users/jacksonlong/Claude Coding/younglife-sacramento"
+git push origin main
+```
+Use your GitHub Personal Access Token as the password (Settings → Developer settings → Personal access tokens → Tokens classic → Generate).
