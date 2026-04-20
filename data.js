@@ -469,6 +469,88 @@ const YL_SCHOOLS = [
     medianIncome: 86000
   },
 
+  // ── COMMUNITY COLLEGE TARGETS ──────────────────────────────────────────────
+
+  {
+    id: 20,
+    name: "American River College",
+    shortName: "American River",
+    type: "College", status: "target",
+    progress: "not_started",
+    notes: "",
+    photoUrl: "",
+    lat: 38.6601, lng: -121.3773,
+    district: "Los Rios Community College District",
+    grades: "College",
+    address: "4700 College Oak Drive, Sacramento, CA 95841",
+    enrollment: 30000,
+    frpm: null, attendance: null, chronicAbsenteeism: null,
+    suspensionRate: null, graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 26, asian: 16, black: 11, white: 32, filipino: 4, twoOrMore: 7, other: 4 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: 58000
+  },
+
+  {
+    id: 21,
+    name: "Sacramento City College",
+    shortName: "Sacramento City",
+    type: "College", status: "target",
+    progress: "not_started",
+    notes: "",
+    photoUrl: "",
+    lat: 38.5434, lng: -121.4972,
+    district: "Los Rios Community College District",
+    grades: "College",
+    address: "3835 Freeport Boulevard, Sacramento, CA 95822",
+    enrollment: 22000,
+    frpm: null, attendance: null, chronicAbsenteeism: null,
+    suspensionRate: null, graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 32, asian: 18, black: 14, white: 24, filipino: 4, twoOrMore: 5, other: 3 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: 42000
+  },
+
+  {
+    id: 22,
+    name: "Cosumnes River College",
+    shortName: "Cosumnes River",
+    type: "College", status: "target",
+    progress: "not_started",
+    notes: "",
+    photoUrl: "",
+    lat: 38.4883, lng: -121.4200,
+    district: "Los Rios Community College District",
+    grades: "College",
+    address: "8401 Center Parkway, Sacramento, CA 95823",
+    enrollment: 15000,
+    frpm: null, attendance: null, chronicAbsenteeism: null,
+    suspensionRate: null, graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 30, asian: 22, black: 12, white: 24, filipino: 5, twoOrMore: 5, other: 2 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: 52000
+  },
+
+  {
+    id: 23,
+    name: "Folsom Lake College",
+    shortName: "Folsom Lake",
+    type: "College", status: "target",
+    progress: "not_started",
+    notes: "",
+    photoUrl: "",
+    lat: 38.6681, lng: -121.1385,
+    district: "Los Rios Community College District",
+    grades: "College",
+    address: "10 College Parkway, Folsom, CA 95630",
+    enrollment: 10000,
+    frpm: null, attendance: null, chronicAbsenteeism: null,
+    suspensionRate: null, graduationRate: null, collegeCareerReady: null,
+    demographics: { hispanic: 18, asian: 18, black: 6, white: 44, filipino: 4, twoOrMore: 7, other: 3 },
+    testScores: { ela: null, math: null },
+    englishLearners: null, specialEd: null, medianIncome: 88000
+  },
+
   {
     id: 19,
     name: "Joseph Kerr Middle School",
