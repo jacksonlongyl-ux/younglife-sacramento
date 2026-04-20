@@ -177,7 +177,7 @@ const PIN_TYPES = {
   HS:         { cls: 'mk-existing',  txt: 'YL'  },
   MS:         { cls: 'mk-wyldlife',  txt: 'WL'  },
   College:    { cls: 'mk-college',   txt: 'YLC' },
-  YLOne:      { cls: 'mk-ylone',     txt: '1'   },
+  YLOne:      { cls: 'mk-ylone',     txt: 'YL1' },
   Capernaum:  { cls: 'mk-capernaum', txt: 'C'   },
 };
 
@@ -346,6 +346,16 @@ function buildSidebarHTML(sc) {
         <span class="sv">${enrollVal}</span>
         <span class="sl">Students</span>
       </div>
+      ${sc.type === 'College' || sc.type === 'YLOne' ? `
+      ${sc.type === 'College' && sc.pellGrant != null ? `<div class="stat-cell">
+        <span class="sv">${sc.pellGrant}%</span>
+        <span class="sl">Pell Grant</span>
+      </div>` : ''}
+      ${sc.graduationRate != null ? `<div class="stat-cell">
+        <span class="sv" style="color:${colorScore(sc.graduationRate)}">${sc.graduationRate}%</span>
+        <span class="sl">Grad %</span>
+      </div>` : ''}
+      ` : `
       <div class="stat-cell">
         <span class="sv" style="color:${frpmColor}">${frpmVal}</span>
         <span class="sl">Free Lunch</span>
@@ -358,6 +368,7 @@ function buildSidebarHTML(sc) {
         <span class="sv" style="color:${mathColor}">${mathVal}</span>
         <span class="sl">Math Prof.</span>
       </div>
+      `}
     </div>
 
     ${missionSection(sc)}
