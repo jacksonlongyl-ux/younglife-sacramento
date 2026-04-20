@@ -173,21 +173,32 @@ function plotSchools() {
 
 // ── MARKERS ───────────────────────────────────────────────────────────────
 
+const PIN_TYPES = {
+  HS:         { cls: 'mk-existing',  txt: 'YL'  },
+  MS:         { cls: 'mk-wyldlife',  txt: 'WL'  },
+  College:    { cls: 'mk-college',   txt: 'YLC' },
+  YLOne:      { cls: 'mk-ylone',     txt: '1'   },
+  Capernaum:  { cls: 'mk-capernaum', txt: 'C'   },
+};
+
 function buildIcon(school, selected) {
   const sel = selected ? ' sel' : '';
-  if (school.type === 'Capernaum') {
+  const pin = PIN_TYPES[school.type];
+
+  if (pin && school.status === 'existing') {
     return L.divIcon({
       className: '',
-      html: `<div class="mk-capernaum${sel}"><div class="pin"><span class="txt">C</span></div></div>`,
+      html: `<div class="${pin.cls}${sel}"><div class="pin"><span class="txt">${pin.txt}</span></div></div>`,
       iconSize:   [34, 42],
       iconAnchor: [17, 42],
       popupAnchor:[0, -44]
     });
   }
-  if (school.status === 'existing') {
+  // Capernaum has no "target" state — always active
+  if (school.type === 'Capernaum') {
     return L.divIcon({
       className: '',
-      html: `<div class="mk-existing${sel}"><div class="pin"><span class="txt">YL</span></div></div>`,
+      html: `<div class="mk-capernaum${sel}"><div class="pin"><span class="txt">C</span></div></div>`,
       iconSize:   [34, 42],
       iconAnchor: [17, 42],
       popupAnchor:[0, -44]
