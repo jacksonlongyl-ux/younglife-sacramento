@@ -142,6 +142,26 @@
 <!-- ── HOVER TOOLTIP ───────────────────────────────────────────────────── -->
 <div id="tooltip"></div>
 
+<!-- ── STAFF CARD ──────────────────────────────────────────────────────── -->
+<div id="staffCard" class="staff-card hidden">
+  <button id="staffCardClose" class="staff-card-close">&times;</button>
+  <div class="staff-photo-wrap">
+    <img id="staffPhoto" src="" alt="">
+  </div>
+  <div class="staff-info">
+    <div class="staff-name" id="staffName"></div>
+    <div class="staff-title" id="staffTitle"></div>
+    <a class="staff-link staff-phone" id="staffPhone" href="#">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+      <span id="staffPhoneText"></span>
+    </a>
+    <a class="staff-link staff-email" id="staffEmail" href="#">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+      <span id="staffEmailText"></span>
+    </a>
+  </div>
+</div>
+
 <!-- ── PRINT STYLES ─────────────────────────────────────────────────────── -->
 <style>
 @media print {
@@ -162,6 +182,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js?v=8"></script>
 <script src="data.js?v=8"></script>
+<script src="staff.js?v=8"></script>
 <script src="app.js?v=8"></script>
 
 </body>

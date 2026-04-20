@@ -252,6 +252,12 @@ function openSidebar(school) {
 
   document.getElementById('addCmpBtn').addEventListener('click', () => toggleCompare(school));
   document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  const staffBadge = document.querySelector('.sc-staff');
+  if (staffBadge) staffBadge.addEventListener('click', e => {
+    e.stopPropagation();
+    openStaffCard(school.staffPerson, staffBadge);
+  });
 }
 
 function closeSidebar() {
@@ -516,6 +522,44 @@ function detailSection(sc) {
       </div>`).join('')}
   </div>`;
 }
+
+// ── STAFF CARD ────────────────────────────────────────────────────────────
+
+function openStaffCard(name, anchorEl) {
+  const staff = YL_STAFF && YL_STAFF[name];
+  if (!staff) return;
+
+  const card = document.getElementById('staffCard');
+  document.getElementById('staffPhoto').src    = staff.photoFile;
+  document.getElementById('staffPhoto').alt    = staff.name;
+  document.getElementById('staffName').textContent  = staff.name;
+  document.getElementById('staffTitle').textContent = `${staff.title} · ${staff.org}`;
+
+  const phoneFormatted = staff.phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+  document.getElementById('staffPhoneText').textContent = phoneFormatted;
+  document.getElementById('staffPhone').href = `tel:${staff.phone}`;
+  document.getElementById('staffEmailText').textContent = staff.email;
+  document.getElementById('staffEmail').href = `mailto:${staff.email}`;
+
+  // Position near the anchor element
+  const rect = anchorEl.getBoundingClientRect();
+  card.style.top  = `${rect.bottom + 8}px`;
+  card.style.left = `${Math.min(rect.left, window.innerWidth - 260)}px`;
+
+  card.classList.remove('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('staffCardClose').addEventListener('click', () => {
+    document.getElementById('staffCard').classList.add('hidden');
+  });
+  document.addEventListener('click', e => {
+    const card = document.getElementById('staffCard');
+    if (!card.classList.contains('hidden') && !card.contains(e.target) && !e.target.closest('.sc-staff')) {
+      card.classList.add('hidden');
+    }
+  });
+});
 
 // ── REACH COUNTER ─────────────────────────────────────────────────────────
 
