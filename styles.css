@@ -386,6 +386,7 @@ body {
 .b-existing   { background: #e0eaf4; color: var(--navy); }
 .b-target     { background: #fee2e6; color: var(--red); }
 .b-capernaum  { background: #ede9fe; color: #7c3aed; }
+.b-ylone      { background: #fef3c7; color: #92400e; }
 
 .sc-name     { font-size: 20px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-bottom: 3px; }
 .sc-district { font-size: 11px; color: var(--muted); margin-bottom: 6px; }

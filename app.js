@@ -291,9 +291,10 @@ function buildSidebarHTML(sc) {
 
   const typeBadge = (() => {
     if (sc.type === 'Capernaum') return `<span class="badge b-capernaum">Capernaum</span>`;
-    if (sc.type === 'HS')        return `<span class="badge b-hs">High School</span>`;
-    if (sc.type === 'MS')        return `<span class="badge b-ms">Middle School</span>`;
-    if (sc.type === 'College')   return `<span class="badge b-college">College / University</span>`;
+    if (sc.type === 'HS')        return `<span class="badge b-hs">Young Life</span>`;
+    if (sc.type === 'MS')        return `<span class="badge b-ms">Wyldlife</span>`;
+    if (sc.type === 'College')   return `<span class="badge b-college">College YL</span>`;
+    if (sc.type === 'YLOne')     return `<span class="badge b-ylone">YL One</span>`;
     return `<span class="badge b-special">Special Program</span>`;
   })();
 
@@ -742,8 +743,10 @@ function applyFilter() {
     if (!marker) return;
 
     const matchesFilter = activeFilter === 'all'
-      || (activeFilter === 'existing'   && sc.status === 'existing' && sc.type !== 'Capernaum')
-      || (activeFilter === 'target'     && sc.status === 'target')
+      || (activeFilter === 'younglife'  && sc.type === 'HS')
+      || (activeFilter === 'wyldlife'   && sc.type === 'MS')
+      || (activeFilter === 'college'    && sc.type === 'College')
+      || (activeFilter === 'ylone'      && sc.type === 'YLOne')
       || (activeFilter === 'capernaum'  && sc.type === 'Capernaum');
 
     const matchesSearch = !searchQuery

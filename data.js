@@ -198,7 +198,7 @@ const YL_SCHOOLS = [
     id: 8,
     name: "Sacramento County Youth Detention Facility",
     shortName: "Youth Detention",
-    type: "Special", status: "existing",
+    type: "YLOne", status: "existing",
     progress: "active",
     notes: "",
     photoUrl: "",
