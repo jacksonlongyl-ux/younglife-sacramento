@@ -504,7 +504,7 @@ const YL_SCHOOLS = [
     district: "Los Rios Community College District",
     grades: "College",
     address: "4700 College Oak Drive, Sacramento, CA 95841",
-    enrollment: 30000,
+    enrollment: 32000,
     pellGrant: 47,
     frpm: null, attendance: null, chronicAbsenteeism: null,
     suspensionRate: null, graduationRate: 38, collegeCareerReady: null,
@@ -577,6 +577,33 @@ const YL_SCHOOLS = [
     demographics: { hispanic: 18, asian: 18, black: 6, white: 44, filipino: 4, twoOrMore: 7, other: 3 },
     testScores: { ela: null, math: null },
     englishLearners: null, specialEd: null, medianIncome: 88000
+  },
+
+  {
+    id: 26,
+    name: "Vista del Lago High School",
+    shortName: "Vista del Lago HS",
+    type: "HS", status: "target",
+    progress: "not_started",
+    notes: "",
+    photoUrl: "",
+    staffPerson: "",
+    lat: 38.6540, lng: -121.1985,
+    district: "Folsom Cordova Unified School District",
+    grades: "9–12",
+    address: "1970 Broadstone Parkway, Folsom, CA 95630",
+    enrollment: 1782,
+    frpm: 8,
+    attendance: 96,
+    chronicAbsenteeism: 8,
+    suspensionRate: 1,
+    graduationRate: 99,
+    collegeCareerReady: 72,
+    demographics: { hispanic: 10, asian: 32, black: 1, white: 50, filipino: 2, twoOrMore: 5, other: 0 },
+    testScores: { ela: 79, math: 62 },
+    englishLearners: 2,
+    specialEd: 9,
+    medianIncome: 115000
   },
 
   {
