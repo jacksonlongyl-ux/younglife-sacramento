@@ -588,7 +588,7 @@ const YL_SCHOOLS = [
     notes: "",
     photoUrl: "",
     staffPerson: "",
-    lat: 38.6540, lng: -121.1985,
+    lat: 38.6585, lng: -121.1757,
     district: "Folsom Cordova Unified School District",
     grades: "9–12",
     address: "1970 Broadstone Parkway, Folsom, CA 95630",
