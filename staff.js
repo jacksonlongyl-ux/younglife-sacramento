@@ -53,7 +53,7 @@ const YL_STAFF = {
   },
   "Jax Laskey": {
     name: "Jax Laskey",
-    title: "Capernaum Director",
+    title: "Staff Associate",
     org: "Capernaum Greater Sacramento",
     phone: "9169451838",
     email: "jacquelynlaskey@gmail.com",

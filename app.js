@@ -46,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
   plotSchools();
   wireControls();
   updateVisionStrip();
-  initTweaks();
+  // Apply default appearance classes
+  document.body.classList.add('d-spacious', 'mk-style-pin');
 });
 
 /* ── MAP ─────────────────────────────────────────────────────── */
@@ -628,97 +629,3 @@ function wireControls() {
   });
 }
 
-/* ── TWEAKS ──────────────────────────────────────────────────── */
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "density": "spacious",
-  "marker": "pin",
-  "basemap": "paper",
-  "showStrip": true,
-  "showPhotos": false
-}/*EDITMODE-END*/;
-let tweaks = { ...TWEAK_DEFAULTS };
-
-function initTweaks() {
-  applyTweaks();
-  // Show fab + register protocol after listener wired
-  window.addEventListener('message', e => {
-    if (e.data?.type === '__activate_edit_mode') openTweaks();
-    if (e.data?.type === '__deactivate_edit_mode') closeTweaks();
-  });
-  try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch(e){}
-  document.getElementById('tweaksFab').addEventListener('click', openTweaks);
-  document.getElementById('tweaksClose').addEventListener('click', closeTweaks);
-  buildTweakControls();
-}
-
-function openTweaks() {
-  document.getElementById('tweaksFab').setAttribute('hidden','');
-  document.getElementById('tweaksPanel').classList.remove('hidden');
-}
-function closeTweaks() {
-  document.getElementById('tweaksFab').removeAttribute('hidden');
-  document.getElementById('tweaksPanel').classList.add('hidden');
-  try { window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*'); } catch(e){}
-}
-
-function setTweak(key, value) {
-  tweaks[key] = value;
-  applyTweaks();
-  buildTweakControls();
-  try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: value } }, '*'); } catch(e){}
-}
-
-function applyTweaks() {
-  document.body.classList.remove('d-compact','d-comfortable','d-spacious','no-strip','no-photo','mk-style-pin','mk-style-min','mk-style-dot');
-  document.body.classList.add('d-' + tweaks.density);
-  document.body.classList.add('mk-style-' + tweaks.marker);
-  if (!tweaks.showStrip) document.body.classList.add('no-strip');
-  if (!tweaks.showPhotos) document.body.classList.add('no-photo');
-  if (map) setBasemap(tweaks.basemap);
-}
-
-function buildTweakControls() {
-  const c = document.getElementById('tweaksBody');
-  if (!c) return;
-  c.innerHTML = `
-    <div class="tweak-group">
-      <div class="tweak-label">Density</div>
-      <div class="seg" data-key="density">
-        ${['compact','comfortable','spacious'].map(v=>`<button data-v="${v}" class="${tweaks.density===v?'on':''}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}
-      </div>
-    </div>
-    <div class="tweak-group">
-      <div class="tweak-label">Marker style</div>
-      <div class="seg" data-key="marker">
-        ${[['dot','Dot'],['pin','Pin'],['min','Minimal']].map(([v,l])=>`<button data-v="${v}" class="${tweaks.marker===v?'on':''}">${l}</button>`).join('')}
-      </div>
-    </div>
-    <div class="tweak-group">
-      <div class="tweak-label">Basemap</div>
-      <div class="seg" data-key="basemap">
-        ${[['paper','Paper'],['light','Light'],['muted','Muted']].map(([v,l])=>`<button data-v="${v}" class="${tweaks.basemap===v?'on':''}">${l}</button>`).join('')}
-      </div>
-    </div>
-    <div class="tweak-group">
-      <div class="toggle-row">
-        <span>Vision strip</span>
-        <button class="toggle ${tweaks.showStrip?'on':''}" data-toggle="showStrip"></button>
-      </div>
-    </div>
-    <div class="tweak-group">
-      <div class="toggle-row">
-        <span>School photos</span>
-        <button class="toggle ${tweaks.showPhotos?'on':''}" data-toggle="showPhotos"></button>
-      </div>
-    </div>
-  `;
-  c.querySelectorAll('.seg').forEach(seg => {
-    const key = seg.dataset.key;
-    seg.querySelectorAll('button').forEach(b => {
-      b.addEventListener('click', () => setTweak(key, b.dataset.v));
-    });
-  });
-  c.querySelectorAll('.toggle').forEach(t => {
-    t.addEventListener('click', () => setTweak(t.dataset.toggle, !tweaks[t.dataset.toggle]));
-  });
-}
