@@ -1,283 +1,181 @@
 'use strict';
 
-// ── CONFIG ────────────────────────────────────────────────────────────────
-
-const NAVY = '#003057';
-const RED  = '#C8102E';
-const BLUE = '#009FD4';
-
-const DEMO_COLORS = {
-  hispanic:  '#f97316',
-  asian:     '#3b82f6',
-  black:     '#8b5cf6',
-  white:     '#10b981',
-  filipino:  '#ec4899',
-  twoOrMore: '#14b8a6',
-  other:     '#94a3b8'
-};
+/* ─────────────────────────────────────────────────────────────────────
+   Young Life · Sacramento County — Ministry Map
+   ───────────────────────────────────────────────────────────────────── */
 
 const PROGRESS_STEPS = [
-  { key: 'exploring',        label: 'Exploring' },
+  { key: 'exploring',         label: 'Exploring' },
   { key: 'leader_identified', label: 'Leader Identified' },
-  { key: 'club_launched',    label: 'Club Launched' }
+  { key: 'club_launched',     label: 'Club Launched' }
 ];
 
-// ── STATE ─────────────────────────────────────────────────────────────────
+const DEMO_COLORS = {
+  hispanic:  '#c08a2a',
+  asian:     '#1d6c95',
+  black:     '#7e5c8e',
+  white:     '#4f8c2f',
+  filipino:  '#b04a3a',
+  twoOrMore: '#2a8a8a',
+  other:     '#8a8a8a'
+};
 
-// CA DOE ArcGIS service — 2024-25 school district boundaries (all Sacramento County)
+const STATE_AVG = (typeof window !== 'undefined' && window.STATE_AVERAGES) || { ela: 47, math: 35 };
+
+const TYPE_LETTER = { HS: 'YL', MS: 'WL', College: 'C', YLOne: 'Y1', Capernaum: 'Cp' };
+const TYPE_CLASS  = { HS: 't-yl', MS: 't-wl', College: 't-col', YLOne: 't-yl1', Capernaum: 't-cap' };
+const TYPE_LABEL  = { HS: 'Young Life', MS: 'Wyldlife', College: 'College YL', YLOne: 'YL One', Capernaum: 'Capernaum' };
+
 const DISTRICT_API = 'https://services3.arcgis.com/fdvHcZVgB2QSRNkL/arcgis/rest/services/SchoolDistrictAreas2425/FeatureServer/0/query'
-  + '?where=CountyName%3D%27Sacramento%27'
-  + '&outFields=DistrictName&outSR=4326&f=geojson&resultRecordCount=100';
+  + '?where=CountyName%3D%27Sacramento%27&outFields=DistrictName&outSR=4326&f=geojson&resultRecordCount=100';
 
 let map;
-let leafletMarkers  = {};
-let boundaryLayer   = null;
+let leafletMarkers = {};
+let boundaryLayer = null;
 let districtGeoJSON = null;
-let boundariesOn    = false;
-let activeFilter    = 'all';
-let searchQuery     = '';
-let openSchoolId    = null;
-let compareList     = [];
+let boundariesOn = false;
+let activeFilter = 'all';
+let searchQuery = '';
+let openSchoolId = null;
+let compareList = [];
 let comparePanelOpen = false;
-let activeSchools   = YL_SCHOOLS;
+let activeSchools = (typeof YL_SCHOOLS !== 'undefined') ? YL_SCHOOLS : [];
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   initMap();
-  await loadSchoolData();
   plotSchools();
   wireControls();
-  updateHeaderStats();
-  updateReachCounter();
+  updateVisionStrip();
+  initTweaks();
 });
 
-// ── GOOGLE SHEETS SYNC ────────────────────────────────────────────────────
-
-async function loadSchoolData() {
-  if (!SHEETS_URL || SHEETS_URL.trim() === '') return;
-
-  try {
-    const res  = await fetch(SHEETS_URL);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    if (rows.length < 2) return;
-
-    const headers = rows[0].map(h => h.trim());
-    const parsed  = rows.slice(1).filter(r => r.length > 1).map(row => {
-      const o = {};
-      headers.forEach((h, i) => o[h] = row[i] ? row[i].trim() : '');
-      return {
-        id:                  Number(o.id),
-        name:                o.name,
-        shortName:           o.shortName || o.name,
-        type:                o.type,
-        status:              o.status,
-        progress:            o.progress || (o.status === 'existing' ? 'active' : 'not_started'),
-        notes:               o.notes || '',
-        photoUrl:            o.photoUrl || '',
-        staffPerson:         o.staffPerson || '',
-        lat:                 Number(o.lat),
-        lng:                 Number(o.lng),
-        district:            o.district,
-        grades:              o.grades,
-        address:             o.address,
-        enrollment:          o.enrollment          ? Number(o.enrollment)          : null,
-        frpm:                o.frpm                ? Number(o.frpm)                : null,
-        attendance:          o.attendance          ? Number(o.attendance)          : null,
-        chronicAbsenteeism:  o.chronicAbsenteeism  ? Number(o.chronicAbsenteeism)  : null,
-        suspensionRate:      o.suspensionRate       ? Number(o.suspensionRate)      : null,
-        graduationRate:      o.graduationRate       ? Number(o.graduationRate)      : null,
-        collegeCareerReady:  o.collegeCareerReady   ? Number(o.collegeCareerReady)  : null,
-        englishLearners:     o.englishLearners      ? Number(o.englishLearners)     : null,
-        specialEd:           o.specialEd            ? Number(o.specialEd)           : null,
-        medianIncome:        o.medianIncome         ? Number(o.medianIncome)        : null,
-        demographics: {
-          hispanic:  Number(o.hispanic  || 0),
-          asian:     Number(o.asian     || 0),
-          black:     Number(o.black     || 0),
-          white:     Number(o.white     || 0),
-          filipino:  Number(o.filipino  || 0),
-          twoOrMore: Number(o.twoOrMore || 0),
-          other:     Number(o.other     || 0)
-        },
-        testScores: {
-          ela:  o.ela  ? Number(o.ela)  : null,
-          math: o.math ? Number(o.math) : null
-        }
-      };
-    });
-
-    activeSchools = parsed;
-    document.getElementById('syncStatus').classList.remove('hidden');
-  } catch (err) {
-    console.warn('Google Sheets sync failed, using built-in data:', err);
-  }
-}
-
-function parseCSV(text) {
-  return text.split('\n').map(line => {
-    const result = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === ',' && !inQ) { result.push(cur); cur = ''; continue; }
-      cur += c;
-    }
-    result.push(cur);
-    return result;
-  });
-}
-
-// ── MAP INIT ──────────────────────────────────────────────────────────────
-
+/* ── MAP ─────────────────────────────────────────────────────── */
 function initMap() {
   map = L.map('map', {
-    center: MAP_CENTER,
-    zoom: MAP_ZOOM,
+    center: [38.52, -121.38],
+    zoom: 11,
     zoomControl: false,
     attributionControl: true
   });
-
   L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
-
+  setBasemap('paper');
   map.on('click', () => closeSidebar());
 }
 
-function plotSchools() {
-  activeSchools.forEach(school => {
-    const marker = L.marker([school.lat, school.lng], {
-      icon: buildIcon(school, false),
-      title: school.name
-    });
-
-    marker.on('click', e => {
-      L.DomEvent.stopPropagation(e);
-      openSidebar(school);
-    });
-
-    marker.on('mouseover', e => showTooltip(e, school));
-    marker.on('mouseout',  ()  => hideTooltip());
-
-    marker.addTo(map);
-    leafletMarkers[school.id] = marker;
-  });
+let basemapLayer;
+const BASEMAPS = {
+  paper:   'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+  light:   'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  muted:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+  labels:  'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+};
+let labelLayer = null;
+function setBasemap(kind) {
+  if (basemapLayer) map.removeLayer(basemapLayer);
+  if (labelLayer)   map.removeLayer(labelLayer);
+  basemapLayer = L.tileLayer(BASEMAPS[kind] || BASEMAPS.paper, {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+  if (kind === 'paper' || kind === 'muted') {
+    labelLayer = L.tileLayer(BASEMAPS.labels, { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
+  }
 }
 
-// ── MARKERS ───────────────────────────────────────────────────────────────
+function plotSchools() {
+  Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+  leafletMarkers = {};
+  // Sort so YLOne / Capernaum render after HS pins → DOM order puts them on top
+  const ordered = [...activeSchools].sort((a, b) => priority(a) - priority(b));
+  ordered.forEach(s => addMarker(s));
+}
 
-const PIN_TYPES = {
-  HS:         { cls: 'mk-existing',  txt: 'YL'  },
-  MS:         { cls: 'mk-wyldlife',  txt: 'WL'  },
-  College:    { cls: 'mk-college',   txt: 'YLC' },
-  YLOne:      { cls: 'mk-ylone',     txt: 'YL1' },
-  Capernaum:  { cls: 'mk-capernaum', txt: 'C'   },
-};
+function priority(s) {
+  if (s.status === 'target') return 0;
+  if (s.type === 'YLOne' || s.type === 'Capernaum') return 3;
+  if (s.type === 'College') return 2;
+  return 1;
+}
 
+function addMarker(school) {
+  // YL One / Capernaum sit on top of everything else (active ministries get visual priority)
+  const z =
+    school.type === 'YLOne' || school.type === 'Capernaum' ? 2000 :
+    school.status === 'target' ? 1500 :
+    school.type === 'College' ? 800 : 0;
+  const marker = L.marker([school.lat, school.lng], {
+    icon: buildIcon(school, false),
+    title: school.name,
+    zIndexOffset: z,
+    riseOnHover: true
+  });
+  marker.on('click', e => { L.DomEvent.stopPropagation(e); openSidebar(school); });
+  marker.on('mouseover', e => showTooltip(e, school));
+  marker.on('mouseout', () => hideTooltip());
+  marker.addTo(map);
+  leafletMarkers[school.id] = marker;
+}
+
+/* ── MARKERS ─────────────────────────────────────────────────── */
 function buildIcon(school, selected) {
-  const sel = selected ? ' sel' : '';
-  const pin = PIN_TYPES[school.type];
-
-  if (pin && school.status === 'existing') {
-    return L.divIcon({
-      className: '',
-      html: `<div class="${pin.cls}${sel}"><div class="pin"><span class="txt">${pin.txt}</span></div></div>`,
-      iconSize:   [34, 42],
-      iconAnchor: [17, 42],
-      popupAnchor:[0, -44]
-    });
-  }
-  // Capernaum has no "target" state — always active
-  if (school.type === 'Capernaum') {
-    return L.divIcon({
-      className: '',
-      html: `<div class="mk-capernaum${sel}"><div class="pin"><span class="txt">C</span></div></div>`,
-      iconSize:   [34, 42],
-      iconAnchor: [17, 42],
-      popupAnchor:[0, -44]
-    });
-  }
+  const isExisting = school.status === 'existing' || school.type === 'Capernaum';
+  const cls = [
+    'mk',
+    isExisting ? 'existing' : 'target',
+    TYPE_CLASS[school.type] || 't-yl',
+    selected ? 'sel' : ''
+  ].join(' ');
+  const letter = TYPE_LETTER[school.type] || 'YL';
   return L.divIcon({
     className: '',
-    html: `<div class="mk-target${sel}"><div class="ring"><div class="dot"></div></div></div>`,
-    iconSize:   [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor:[0, -16]
+    html: `<div class="${cls}"><div class="core"><span>${letter}</span></div></div>`,
+    iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -18]
   });
 }
 
 function refreshMarkerIcon(school) {
-  const marker = leafletMarkers[school.id];
-  if (marker) marker.setIcon(buildIcon(school, openSchoolId === school.id));
+  const m = leafletMarkers[school.id];
+  if (m) m.setIcon(buildIcon(school, openSchoolId === school.id));
 }
 
-// ── TOOLTIP ───────────────────────────────────────────────────────────────
-
+/* ── TOOLTIP ─────────────────────────────────────────────────── */
 function showTooltip(e, school) {
   const el = document.getElementById('tooltip');
-  const statusText = school.status === 'existing' ? '✓ Active YL' : '◎ Target School';
-  const enrollText = school.enrollment ? `${school.enrollment.toLocaleString()} students` : '';
-  const progressLabel = progressText(school);
-
+  const status = school.status === 'existing' || school.type === 'Capernaum' ? 'Active · ' + (TYPE_LABEL[school.type]||'') : 'Target · ' + (TYPE_LABEL[school.type]||'');
+  const enroll = school.enrollment ? `${school.enrollment.toLocaleString()} students` : '';
+  const prog = progressText(school);
   el.innerHTML = `
     <div class="t-name">${school.shortName}</div>
-    <div class="t-sub">${statusText}${progressLabel ? ' · ' + progressLabel : ''}</div>
-    <div class="t-sub">${school.district}</div>
-    ${enrollText ? `<div class="t-sub">${enrollText}</div>` : ''}
+    <div class="t-sub">${status}${prog ? ' · ' + prog : ''}</div>
+    ${enroll ? `<div class="t-meta">${enroll}</div>` : ''}
   `;
-
-  const px = e.originalEvent.clientX;
-  const py = e.originalEvent.clientY;
-  el.style.left = `${px}px`;
-  el.style.top  = `${py}px`;
+  el.style.left = `${e.originalEvent.clientX}px`;
+  el.style.top = `${e.originalEvent.clientY}px`;
   el.style.display = 'block';
 }
-
-function hideTooltip() {
-  document.getElementById('tooltip').style.display = 'none';
+function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+function progressText(s) {
+  if (s.status === 'existing') return '';
+  return ({ exploring:'Exploring', leader_identified:'Leader Identified', club_launched:'Club Launched' })[s.progress] || '';
 }
 
-function progressText(school) {
-  if (school.status === 'existing') return '';
-  const map = {
-    not_started:      '',
-    exploring:        'Exploring',
-    leader_identified:'Leader Identified',
-    club_launched:    'Club Launched'
-  };
-  return map[school.progress] || '';
-}
-
-// ── SIDEBAR ───────────────────────────────────────────────────────────────
-
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
 function openSidebar(school) {
   const prev = openSchoolId;
   openSchoolId = school.id;
-
   if (prev && prev !== school.id) {
-    const prevSchool = activeSchools.find(s => s.id === prev);
-    if (prevSchool) refreshMarkerIcon(prevSchool);
+    const ps = activeSchools.find(s => s.id === prev);
+    if (ps) refreshMarkerIcon(ps);
   }
   refreshMarkerIcon(school);
-
-  document.getElementById('sidebarContent').innerHTML = buildSidebarHTML(school);
+  document.getElementById('sidebarContent').innerHTML = renderSidebar(school);
   document.getElementById('sidebar').classList.add('open');
-
-  document.getElementById('addCmpBtn').addEventListener('click', () => toggleCompare(school));
-  document.getElementById('printBtn').addEventListener('click', () => window.print());
-
-  const staffBadge = document.querySelector('.sc-staff');
-  if (staffBadge) staffBadge.addEventListener('click', e => {
-    e.stopPropagation();
-    openStaffCard(school.staffPerson, staffBadge);
-  });
+  const addBtn = document.getElementById('addCmpBtn');
+  if (addBtn) addBtn.addEventListener('click', () => toggleCompare(school));
+  const printBtn = document.getElementById('printBtn');
+  if (printBtn) printBtn.addEventListener('click', () => window.print());
+  const staffEl = document.querySelector('.sc-staff');
+  if (staffEl) staffEl.addEventListener('click', e => { e.stopPropagation(); openStaffCard(school.staffPerson, staffEl); });
 }
 
 function closeSidebar() {
@@ -288,656 +186,539 @@ function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('sidebarClose').addEventListener('click', e => {
-    e.stopPropagation();
-    closeSidebar();
-  });
-});
-
-// ── SIDEBAR HTML ──────────────────────────────────────────────────────────
-
-function buildSidebarHTML(sc) {
+function renderSidebar(sc) {
   const inCmp = compareList.some(s => s.id === sc.id);
-
-  const typeBadge = (() => {
-    if (sc.type === 'Capernaum') return `<span class="badge b-capernaum">Capernaum</span>`;
-    if (sc.type === 'HS')        return `<span class="badge b-hs">Young Life</span>`;
-    if (sc.type === 'MS')        return `<span class="badge b-ms">Wyldlife</span>`;
-    if (sc.type === 'College')   return `<span class="badge b-college">College YL</span>`;
-    if (sc.type === 'YLOne')     return `<span class="badge b-ylone">YL One</span>`;
-    return `<span class="badge b-special">Special Program</span>`;
-  })();
-
-  const statusBadge = sc.type === 'Capernaum'
-    ? `<span class="badge b-capernaum">✓ Active Ministry</span>`
-    : sc.status === 'existing'
-      ? `<span class="badge b-existing">✓ Active YL</span>`
-      : `<span class="badge b-target">◎ Target School</span>`;
-
-  const gradesBadge = sc.grades && sc.grades !== 'College'
-    ? `<span class="badge b-hs" style="background:#f1f5f9;color:#475569">Grades ${sc.grades}</span>`
-    : '';
+  const isExisting = sc.status === 'existing' || sc.type === 'Capernaum';
+  const initials = sc.shortName.split(/[\s,\-]+/).map(w => w[0]).filter(Boolean).slice(0,3).join('').toUpperCase();
 
   const enrollVal = sc.enrollment ? sc.enrollment.toLocaleString() : '—';
-  const frpmVal   = sc.frpm   !== null ? `${sc.frpm}%`   : '—';
-  const elaVal    = sc.testScores.ela  !== null ? `${sc.testScores.ela}%`  : '—';
-  const mathVal   = sc.testScores.math !== null ? `${sc.testScores.math}%` : '—';
+  const ela = sc.testScores?.ela ?? null;
+  const math = sc.testScores?.math ?? null;
+  const frpm = sc.frpm;
+  const frpmKpiCls = frpm == null ? '' : frpm >= 60 ? 'high' : frpm >= 35 ? 'warn' : 'good';
+  const elaKpiCls  = ela == null ? '' : ela >= 50 ? 'good' : ela >= 35 ? 'warn' : 'high';
+  const mathKpiCls = math == null ? '' : math >= 50 ? 'good' : math >= 35 ? 'warn' : 'high';
 
-  const frpmColor = colorFRPM(sc.frpm);
-  const elaColor  = colorScore(sc.testScores.ela);
-  const mathColor = colorScore(sc.testScores.math);
+  const kpiHtml = sc.type === 'College' || sc.type === 'YLOne' || sc.type === 'Capernaum'
+    ? `
+      <div class="kpi"><div class="v">${enrollVal}</div><div class="l">Enrollment</div></div>
+      ${sc.pellGrant != null ? `<div class="kpi"><div class="v warn">${sc.pellGrant}%</div><div class="l">Pell Grant</div></div>` : `<div class="kpi"><div class="v">—</div><div class="l">Pell</div></div>`}
+      ${sc.graduationRate != null ? `<div class="kpi"><div class="v">${sc.graduationRate}%</div><div class="l">Graduation</div></div>` : `<div class="kpi"><div class="v">—</div><div class="l">Graduation</div></div>`}
+      <div class="kpi"><div class="v">${TYPE_LABEL[sc.type]?.split(' ')[0] || '—'}</div><div class="l">Ministry</div></div>
+    `
+    : `
+      <div class="kpi"><div class="v">${enrollVal}</div><div class="l">Students</div></div>
+      <div class="kpi"><div class="v ${frpmKpiCls}">${frpm != null ? frpm + '%' : '—'}</div><div class="l">Free Lunch</div></div>
+      <div class="kpi"><div class="v ${elaKpiCls}">${ela  != null ? ela  + '%' : '—'}</div><div class="l">ELA Prof.</div></div>
+      <div class="kpi"><div class="v ${mathKpiCls}">${math != null ? math + '%' : '—'}</div><div class="l">Math Prof.</div></div>
+    `;
 
   return `
-    ${photoSection(sc)}
+    <div class="sb-actions">
+      <button id="printBtn" title="Print"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path d="M5 4v3H4a2 2 0 00-2 2v5a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4z"/></svg> Print</button>
+      <button class="sb-close" id="sbClose">×</button>
+    </div>
 
-    <div class="sc-header">
-      <div class="sc-badges">${typeBadge}${statusBadge}${gradesBadge}</div>
-      <div class="sc-name">${sc.name}</div>
+    <div class="sc-hero ${sc.photoUrl ? '' : 'placeholder'}" ${sc.photoUrl ? `style="background-image:url('${sc.photoUrl}')"`:''}>
+      <div class="sc-hero-tag ${isExisting ? '' : 'target'}">
+        <span class="dot"></span>
+        ${isExisting ? 'Active Ministry' : 'Target School'}
+      </div>
+      ${!sc.photoUrl ? `<div class="sc-hero-label">School photo · ${initials}</div>` : ''}
+    </div>
+
+    <div class="sc-head">
+      <div class="sc-eyebrow">
+        <span>${TYPE_LABEL[sc.type] || 'Ministry'}</span>
+        <span class="sep">·</span>
+        <span>${sc.grades || (sc.type === 'College' ? 'College' : '—')}</span>
+        ${sc.address ? `<span class="sep">·</span><span>${(sc.address.split(',')[1]||'').trim()}</span>` : ''}
+      </div>
+      <h1 class="sc-name">${sc.name}</h1>
       <div class="sc-district">${sc.district}</div>
-      ${sc.staffPerson ? `<div class="sc-staff"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg> ${sc.staffPerson}</div>` : ''}
+      ${sc.staffPerson ? `<div class="sc-staff">
+        <div class="sc-staff-avatar">${(sc.staffPerson.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase())}</div>
+        <div>${sc.staffPerson}<br><small>YL Staff</small></div>
+      </div>` : ''}
     </div>
 
     ${sc.status === 'target' ? readinessStepper(sc) : ''}
-    ${sc.notes ? notesSection(sc.notes) : ''}
+    ${sc.notes ? notesCallout(sc.notes) : ''}
 
-    <div class="stats-strip">
-      <div class="stat-cell">
-        <span class="sv">${enrollVal}</span>
-        <span class="sl">Students</span>
-      </div>
-      ${sc.type === 'College' || sc.type === 'YLOne' ? `
-      ${sc.type === 'College' && sc.pellGrant != null ? `<div class="stat-cell">
-        <span class="sv">${sc.pellGrant}%</span>
-        <span class="sl">Pell Grant</span>
-      </div>` : ''}
-      ${sc.graduationRate != null ? `<div class="stat-cell">
-        <span class="sv" style="color:${colorScore(sc.graduationRate)}">${sc.graduationRate}%</span>
-        <span class="sl">Grad %</span>
-      </div>` : ''}
-      ` : `
-      <div class="stat-cell">
-        <span class="sv" style="color:${frpmColor}">${frpmVal}</span>
-        <span class="sl">Free Lunch</span>
-      </div>
-      <div class="stat-cell">
-        <span class="sv" style="color:${elaColor}">${elaVal}</span>
-        <span class="sl">ELA Prof.</span>
-      </div>
-      <div class="stat-cell">
-        <span class="sv" style="color:${mathColor}">${mathVal}</span>
-        <span class="sl">Math Prof.</span>
-      </div>
-      `}
-    </div>
+    <div class="kpi-strip">${kpiHtml}</div>
 
     ${missionSection(sc)}
-    ${sc.demographics ? demoSection(sc.demographics) : ''}
-    ${sc.testScores.ela !== null ? scoresSection(sc.testScores) : ''}
+    ${(sc.demographics && Object.values(sc.demographics).some(v => v > 0)) ? demoSection(sc.demographics) : ''}
+    ${(ela != null || math != null) ? scoresSection(sc.testScores) : ''}
     ${sc.medianIncome ? incomeSection(sc.medianIncome) : ''}
     ${detailSection(sc)}
 
-    <button id="addCmpBtn" class="add-cmp-btn ${inCmp ? 'added' : ''}">
-      ${inCmp ? '✓ Added to Comparison' : '+ Add to Comparison'}
+    <button id="addCmpBtn" class="add-cmp ${inCmp ? 'added' : ''}">
+      ${inCmp ? '✓ Added to Comparison' : 'Add to Comparison'}
     </button>
 
     <div class="data-note">
-      Data: CA Dept. of Education SARC 2023–24 · CAASPP 2023–24 · EdData.org · Figures are approximate and for planning purposes.
+      Source: CA Dept. of Education SARC 2023–24 · CAASPP 2023–24 · EdData.org. Figures approximate, for planning purposes.
     </div>
   `;
 }
 
-function photoSection(sc) {
-  const initials = sc.shortName.split(' ').map(w => w[0]).join('').slice(0, 3);
-  if (sc.photoUrl) {
-    return `<div class="sc-photo" style="background-image:url('${sc.photoUrl}')"></div>`;
-  }
-  return `<div class="sc-photo sc-photo-placeholder"><span>${initials}</span></div>`;
-}
-
 function readinessStepper(sc) {
   const prog = sc.progress || 'not_started';
-  const stepOrder = ['exploring', 'leader_identified', 'club_launched'];
-  const currentIdx = stepOrder.indexOf(prog);
-
+  const idx = ['exploring','leader_identified','club_launched'].indexOf(prog);
   const steps = PROGRESS_STEPS.map((step, i) => {
-    const done   = i < currentIdx;
-    const active = i === currentIdx;
-    const cls    = done ? 'done' : active ? 'active' : 'pending';
-    return `<div class="rs-step ${cls}">
-      <div class="rs-dot"></div>
-      <span>${step.label}</span>
-    </div>${i < PROGRESS_STEPS.length - 1 ? '<div class="rs-line' + (done ? ' done' : '') + '"></div>' : ''}`;
+    const done = i < idx, active = i === idx;
+    const cls = done ? 'done' : active ? 'active' : '';
+    return `<div class="rs-step ${cls}"><div class="rs-dot"></div><span>${step.label}</span></div>` +
+      (i < PROGRESS_STEPS.length - 1 ? `<div class="rs-line ${done ? 'done' : ''}"></div>` : '');
   }).join('');
-
   const label = prog === 'not_started'
-    ? 'No active steps yet — this school is on our radar.'
+    ? 'On our radar — no active steps yet.'
     : `Currently: <strong>${PROGRESS_STEPS.find(s => s.key === prog)?.label || prog}</strong>`;
-
-  return `<div class="readiness-wrap">
-    <div class="readiness-label">Ministry Progress</div>
+  return `<div class="readiness">
+    <div class="readiness-label">Ministry Readiness</div>
     ${prog !== 'not_started' ? `<div class="rs-track">${steps}</div>` : ''}
     <div class="readiness-sublabel">${label}</div>
   </div>`;
 }
 
-function notesSection(notes) {
+function notesCallout(notes) {
   return `<div class="notes-callout">
-    <div class="notes-icon">
-      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg>
-    </div>
-    <p>${notes}</p>
+    <div class="nc-quote">${notes}</div>
+    <div class="nc-attr">Field note</div>
   </div>`;
 }
 
 function missionSection(sc) {
   const items = [];
-
-  if (sc.graduationRate !== null && sc.graduationRate !== undefined && sc.type === 'HS') {
-    const color = sc.graduationRate >= 90 ? '#16a34a' : sc.graduationRate >= 80 ? '#d97706' : RED;
-    items.push({ label: 'Graduation Rate', value: `${sc.graduationRate}%`, color });
+  if (sc.graduationRate != null && sc.type === 'HS') {
+    const c = sc.graduationRate >= 90 ? 'good' : sc.graduationRate >= 80 ? 'warn' : 'high';
+    items.push({ label: 'Graduation Rate', value: `${sc.graduationRate}%`, cls: c });
   }
-  if (sc.chronicAbsenteeism !== null && sc.chronicAbsenteeism !== undefined) {
-    const color = sc.chronicAbsenteeism <= 10 ? '#16a34a' : sc.chronicAbsenteeism <= 20 ? '#d97706' : RED;
-    items.push({ label: 'Chronic Absenteeism', value: `${sc.chronicAbsenteeism}%`, color });
+  if (sc.chronicAbsenteeism != null) {
+    const c = sc.chronicAbsenteeism <= 10 ? 'good' : sc.chronicAbsenteeism <= 20 ? 'warn' : 'high';
+    items.push({ label: 'Chronic Absenteeism', value: `${sc.chronicAbsenteeism}%`, cls: c });
   }
-  if (sc.suspensionRate !== null && sc.suspensionRate !== undefined) {
-    const color = sc.suspensionRate <= 2 ? '#16a34a' : sc.suspensionRate <= 5 ? '#d97706' : RED;
-    items.push({ label: 'Suspension Rate', value: `${sc.suspensionRate}%`, color });
+  if (sc.suspensionRate != null) {
+    const c = sc.suspensionRate <= 2 ? 'good' : sc.suspensionRate <= 5 ? 'warn' : 'high';
+    items.push({ label: 'Suspension Rate', value: `${sc.suspensionRate}%`, cls: c });
   }
-  if (sc.collegeCareerReady !== null && sc.collegeCareerReady !== undefined) {
-    const color = sc.collegeCareerReady >= 50 ? '#16a34a' : sc.collegeCareerReady >= 35 ? '#d97706' : RED;
-    items.push({ label: 'College & Career Ready', value: `${sc.collegeCareerReady}%`, color });
+  if (sc.collegeCareerReady != null) {
+    const c = sc.collegeCareerReady >= 50 ? 'good' : sc.collegeCareerReady >= 35 ? 'warn' : 'high';
+    items.push({ label: 'College & Career Ready', value: `${sc.collegeCareerReady}%`, cls: c });
   }
-
-  if (items.length === 0) return '';
-
+  if (!items.length) return '';
   return `<div class="section">
     <div class="sec-title">School Context</div>
     <div class="mission-grid">
-      ${items.map(({ label, value, color }) => `
-        <div class="mission-cell">
-          <span class="mission-val" style="color:${color}">${value}</span>
-          <span class="mission-lbl">${label}</span>
-        </div>`).join('')}
+      ${items.map(it => `<div class="mission-cell">
+        <span class="mission-lbl">${it.label}</span>
+        <span class="mission-val ${it.cls}">${it.value}</span>
+      </div>`).join('')}
     </div>
-    <div class="mission-note">Green = healthy · Amber = concern · Red = high need</div>
   </div>`;
 }
 
 function demoSection(demo) {
   const rows = [
-    { key: 'hispanic',  label: 'Hispanic / Latino' },
-    { key: 'asian',     label: 'Asian' },
-    { key: 'black',     label: 'Black / African Am.' },
-    { key: 'white',     label: 'White' },
-    { key: 'filipino',  label: 'Filipino' },
-    { key: 'twoOrMore', label: 'Two or More Races' },
-    { key: 'other',     label: 'Other' }
-  ].filter(({ key }) => (demo[key] || 0) > 0).map(({ key, label }) => {
-    const pct = demo[key] || 0;
-    return `
-      <div class="demo-row">
-        <div class="demo-row-top"><span>${label}</span><span>${pct}%</span></div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${pct}%;background:${DEMO_COLORS[key]}"></div>
-        </div>
-      </div>`;
+    ['hispanic','Hispanic / Latino'],['asian','Asian'],['black','Black / African Am.'],
+    ['white','White'],['filipino','Filipino'],['twoOrMore','Two or More Races'],['other','Other']
+  ].filter(([k]) => (demo[k]||0) > 0).map(([k,label]) => {
+    const pct = demo[k]||0;
+    return `<div class="demo-row">
+      <div class="demo-top"><span>${label}</span><span class="pct">${pct}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${DEMO_COLORS[k]}"></div></div>
+    </div>`;
   }).join('');
-
-  return `<div class="section">
-    <div class="sec-title">Student Demographics</div>
-    ${rows}
-  </div>`;
+  return `<div class="section"><div class="sec-title">Student Demographics</div>${rows}</div>`;
 }
 
 function scoresSection(scores) {
-  const items = [
-    { key: 'ela',  label: 'ELA',  avg: STATE_AVERAGES.ela },
-    { key: 'math', label: 'Math', avg: STATE_AVERAGES.math }
-  ];
-
-  const rows = items.map(({ key, label, avg }) => {
-    const val = scores[key];
-    if (val === null) return '';
-    const color = colorScore(val);
-    return `
-      <div class="score-row">
-        <span class="score-lbl">${label}</span>
-        <div class="score-track">
-          <div class="score-fill" style="width:${Math.min(val,100)}%;background:${color}">
-            <span>${val}%</span>
-          </div>
-          <div class="state-line" style="left:${avg}%"
-               title="CA State Avg ${avg}%"></div>
-        </div>
-      </div>`;
+  const items = [{key:'ela',label:'ELA',avg:STATE_AVG.ela},{key:'math',label:'Math',avg:STATE_AVG.math}];
+  const rows = items.map(({key,label,avg}) => {
+    const v = scores[key]; if (v == null) return '';
+    const c = v >= 50 ? '#4f8c2f' : v >= 35 ? '#c08a2a' : '#b04a3a';
+    return `<div class="score-row">
+      <span class="score-lbl">${label}</span>
+      <div class="score-track">
+        <div class="score-fill" style="width:${Math.min(v,100)}%;background:${c}"><span>${v}%</span></div>
+        <div class="state-line" style="left:${avg}%" title="State Avg ${avg}%"></div>
+      </div>
+    </div>`;
   }).join('');
-
   return `<div class="section">
-    <div class="sec-title">Test Scores vs. State Average</div>
+    <div class="sec-title">Proficiency vs. State</div>
     ${rows}
-    <div class="state-note">Vertical line = CA state avg (ELA ${STATE_AVERAGES.ela}% · Math ${STATE_AVERAGES.math}%)</div>
+    <div class="state-note">Marker = CA average · ELA ${STATE_AVG.ela}% · Math ${STATE_AVG.math}%</div>
   </div>`;
 }
 
 function incomeSection(income) {
   const min = 30000, max = 150000;
-  const pct = Math.round(Math.min(Math.max(((income - min) / (max - min)) * 100, 2), 100));
+  const pct = Math.min(Math.max(((income - min) / (max - min)) * 100, 2), 100);
   return `<div class="section">
-    <div class="sec-title">Neighborhood Wealth</div>
-    <div class="income-lbl">
-      <span>Median Household Income</span>
-      <strong>$${income.toLocaleString()}</strong>
-    </div>
-    <div class="income-track">
-      <div class="income-fill" style="width:${pct}%"></div>
-    </div>
-    <div class="income-scale">
-      <span>$30K</span>
-      <span class="mid">Sacramento County median: ~$72K</span>
-      <span>$150K+</span>
-    </div>
+    <div class="sec-title">Neighborhood Income</div>
+    <div class="income-lbl"><span>Median household</span><strong>$${income.toLocaleString()}</strong></div>
+    <div class="income-track"><div class="income-marker" style="left:${pct}%"></div></div>
+    <div class="income-scale"><span>$30K</span><span>County median ~$72K</span><span>$150K+</span></div>
   </div>`;
 }
 
 function detailSection(sc) {
   const rows = [];
-  if (sc.address)                rows.push(['Address', sc.address]);
-  if (sc.attendance)             rows.push(['Attendance Rate', `${sc.attendance}%`]);
+  if (sc.address)            rows.push(['Address', sc.address]);
+  if (sc.attendance)         rows.push(['Attendance', `${sc.attendance}%`]);
   if (sc.englishLearners != null) rows.push(['English Learners', `${sc.englishLearners}%`]);
-  if (sc.specialEd != null)      rows.push(['Special Education', `${sc.specialEd}%`]);
-
+  if (sc.specialEd != null)  rows.push(['Special Education', `${sc.specialEd}%`]);
+  if (!rows.length) return '';
   return `<div class="section">
-    <div class="sec-title">School Details</div>
-    ${rows.map(([k, v]) => `
-      <div class="info-row">
-        <span class="info-k">${k}</span>
-        <span class="info-v">${v}</span>
-      </div>`).join('')}
+    <div class="sec-title">Details</div>
+    ${rows.map(([k,v]) => `<div class="info-row"><span class="info-k">${k}</span><span class="info-v">${v}</span></div>`).join('')}
   </div>`;
 }
 
-// ── STAFF CARD ────────────────────────────────────────────────────────────
-
+/* ── STAFF CARD ──────────────────────────────────────────────── */
 function openStaffCard(name, anchorEl) {
-  const staff = YL_STAFF && YL_STAFF[name];
+  const staff = (typeof YL_STAFF !== 'undefined') ? YL_STAFF[name] : null;
   if (!staff) return;
-
   const card = document.getElementById('staffCard');
-  document.getElementById('staffPhoto').src    = staff.photoFile;
-  document.getElementById('staffPhoto').alt    = staff.name;
-  document.getElementById('staffName').textContent  = staff.name;
+  const photoWrap = document.getElementById('staffPhotoWrap');
+  const photo = document.getElementById('staffPhoto');
+  const initials = name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+  photo.alt = staff.name;
+  if (staff.photoFile) {
+    photo.onerror = () => {
+      photoWrap.classList.add('placeholder');
+      photoWrap.dataset.initials = initials;
+      photo.style.display = 'none';
+    };
+    photo.src = staff.photoFile;
+    photoWrap.classList.remove('placeholder');
+    photo.style.display = '';
+  } else {
+    photo.removeAttribute('src');
+    photo.style.display = 'none';
+    photoWrap.classList.add('placeholder');
+    photoWrap.dataset.initials = initials;
+  }
+  document.getElementById('staffName').textContent = staff.name;
   document.getElementById('staffTitle').textContent = `${staff.title} · ${staff.org}`;
-
-  const phoneFormatted = staff.phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-  document.getElementById('staffPhoneText').textContent = phoneFormatted;
-  document.getElementById('staffPhone').href = `tel:${staff.phone}`;
-  document.getElementById('staffEmailText').textContent = staff.email;
-  document.getElementById('staffEmail').href = `mailto:${staff.email}`;
-
-  // Position near the anchor element
-  const rect = anchorEl.getBoundingClientRect();
-  card.style.top  = `${rect.bottom + 8}px`;
-  card.style.left = `${Math.min(rect.left, window.innerWidth - 260)}px`;
-
+  const phoneEl = document.getElementById('staffPhone');
+  if (staff.phone) {
+    const p = staff.phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+    document.getElementById('staffPhoneText').textContent = p;
+    phoneEl.href = `tel:${staff.phone}`;
+    phoneEl.style.display = '';
+  } else { phoneEl.style.display = 'none'; }
+  const emailEl = document.getElementById('staffEmail');
+  if (staff.email) {
+    document.getElementById('staffEmailText').textContent = staff.email;
+    emailEl.href = `mailto:${staff.email}`;
+    emailEl.style.display = '';
+  } else { emailEl.style.display = 'none'; }
+  const r = anchorEl.getBoundingClientRect();
+  card.style.top = `${r.bottom + 8}px`;
+  card.style.left = `${Math.min(r.left, window.innerWidth - 290)}px`;
   card.classList.remove('hidden');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('staffCardClose').addEventListener('click', () => {
-    document.getElementById('staffCard').classList.add('hidden');
-  });
-  document.addEventListener('click', e => {
-    const card = document.getElementById('staffCard');
-    if (!card.classList.contains('hidden') && !card.contains(e.target) && !e.target.closest('.sc-staff')) {
-      card.classList.add('hidden');
-    }
-  });
-});
-
-// ── REACH COUNTER ─────────────────────────────────────────────────────────
-
-function updateReachCounter() {
-  const existing = activeSchools.filter(s => s.status === 'existing');
-  const targets  = activeSchools.filter(s => s.status === 'target');
-
-  const existingStudents = existing.reduce((sum, s) => sum + (s.enrollment || 0), 0);
-  const targetStudents   = targets.reduce((sum, s)  => sum + (s.enrollment || 0), 0);
-
-  document.getElementById('reachExistingCount').textContent    = existing.length;
-  document.getElementById('reachExistingStudents').textContent = existingStudents.toLocaleString();
-  document.getElementById('reachTargetCount').textContent      = targets.length;
-  document.getElementById('reachTargetStudents').textContent   = targetStudents.toLocaleString();
+/* ── VISION STRIP ─────────────────────────────────────────────── */
+function updateVisionStrip() {
+  const exist = activeSchools.filter(s => s.status === 'existing');
+  const tgts  = activeSchools.filter(s => s.status === 'target');
+  const eS = exist.reduce((a,s) => a + (s.enrollment||0), 0);
+  const tS = tgts.reduce((a,s) => a + (s.enrollment||0), 0);
+  document.getElementById('vsActive').textContent = exist.length;
+  document.getElementById('vsActiveStudents').textContent = `~${(Math.round(eS/100)*100).toLocaleString()} students on campus`;
+  document.getElementById('vsTarget').textContent = tgts.length;
+  document.getElementById('vsTargetStudents').textContent = `~${(Math.round(tS/100)*100).toLocaleString()} students still ahead`;
 }
 
-// ── SEARCH ────────────────────────────────────────────────────────────────
-
-function applySearch(query) {
-  searchQuery = query.toLowerCase().trim();
-  const clearBtn = document.getElementById('searchClear');
-  clearBtn.style.display = searchQuery ? 'flex' : 'none';
+/* ── SEARCH / FILTER ─────────────────────────────────────────── */
+function applySearch(q) {
+  searchQuery = q.toLowerCase().trim();
+  document.getElementById('searchClear').style.display = searchQuery ? 'flex' : 'none';
   applyFilter();
-
   if (searchQuery) {
-    const match = activeSchools.find(s =>
+    const m = activeSchools.find(s =>
       s.name.toLowerCase().includes(searchQuery) ||
       s.shortName.toLowerCase().includes(searchQuery) ||
-      s.district.toLowerCase().includes(searchQuery)
-    );
-    if (match) map.setView([match.lat, match.lng], 14);
+      s.district.toLowerCase().includes(searchQuery));
+    if (m) map.setView([m.lat, m.lng], 14);
   }
 }
-
-// ── COMPARE ───────────────────────────────────────────────────────────────
-
-function toggleCompare(school) {
-  const idx = compareList.findIndex(s => s.id === school.id);
-  if (idx > -1) {
-    compareList.splice(idx, 1);
-  } else {
-    if (compareList.length >= 4) {
-      alert('You can compare up to 4 schools. Remove one first.');
-      return;
-    }
-    compareList.push(school);
-  }
-  updateCompareBtnState(school.id);
-  updateCompareCounter();
-  if (comparePanelOpen) renderComparePanel();
-}
-
-function updateCompareBtnState(schoolId) {
-  const btn = document.getElementById('addCmpBtn');
-  if (!btn) return;
-  const inList = compareList.some(s => s.id === schoolId);
-  btn.className = `add-cmp-btn${inList ? ' added' : ''}`;
-  btn.textContent = inList ? '✓ Added to Comparison' : '+ Add to Comparison';
-}
-
-function updateCompareCounter() {
-  const n = compareList.length;
-  const btn = document.getElementById('compareBtn');
-  btn.disabled = n < 2;
-  btn.textContent = n >= 2 ? `Compare ${n}` : n === 1 ? 'Compare 1' : 'Compare';
-}
-
-function toggleComparePanel() {
-  comparePanelOpen = !comparePanelOpen;
-  const panel = document.getElementById('comparePanel');
-  if (comparePanelOpen) {
-    panel.classList.add('open');
-    renderComparePanel();
-  } else {
-    panel.classList.remove('open');
-  }
-}
-
-function renderComparePanel() {
-  const body = document.getElementById('cmpBody');
-  if (compareList.length < 2) {
-    body.innerHTML = '<p style="color:#9ca3af;font-size:13px;padding:4px">Add at least 2 schools from the sidebar to compare.</p>';
-    return;
-  }
-
-  const metrics = {
-    enrollment:         { higher: true },
-    frpm:               { higher: false },
-    ela:                { higher: true },
-    math:               { higher: true },
-    graduationRate:     { higher: true },
-    chronicAbsenteeism: { higher: false },
-    medianIncome:       { higher: true }
-  };
-
-  const extremes = {};
-  Object.keys(metrics).forEach(m => {
-    const vals = compareList.map(s => {
-      if (m === 'ela')  return s.testScores.ela;
-      if (m === 'math') return s.testScores.math;
-      return s[m];
-    }).filter(v => v !== null && v !== undefined);
-
-    if (vals.length < 2) return;
-    extremes[m] = {
-      best:  metrics[m].higher ? Math.max(...vals) : Math.min(...vals),
-      worst: metrics[m].higher ? Math.min(...vals) : Math.max(...vals)
-    };
-  });
-
-  function cls(metric, val) {
-    if (!extremes[metric] || val === null) return '';
-    if (val === extremes[metric].best)  return ' best';
-    if (val === extremes[metric].worst) return ' worst';
-    return '';
-  }
-
-  body.innerHTML = compareList.map(sc => {
-    const ela  = sc.testScores.ela;
-    const math = sc.testScores.math;
-    const progressBadge = sc.status === 'target' && sc.progress && sc.progress !== 'not_started'
-      ? `<div style="font-size:10px;color:#d97706;margin-bottom:8px">◉ ${progressText(sc)}</div>`
-      : '';
-
-    return `
-      <div class="cmp-card">
-        <div class="cmp-card-name">${sc.shortName}</div>
-        <div class="cmp-card-dist">${sc.district}</div>
-        ${sc.staffPerson ? `<div class="cmp-card-staff">${sc.staffPerson}</div>` : ''}
-        <span class="badge ${sc.status === 'existing' ? 'b-existing' : 'b-target'}" style="font-size:9px;margin-bottom:6px;display:inline-block">
-          ${sc.status === 'existing' ? 'Active YL' : 'Target'}
-        </span>
-        ${progressBadge}
-        <div class="cmp-row"><span class="cmp-k">Enrollment</span>
-          <span class="cmp-v${cls('enrollment', sc.enrollment)}">${sc.enrollment ? sc.enrollment.toLocaleString() : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Free Lunch %</span>
-          <span class="cmp-v${cls('frpm', sc.frpm)}">${sc.frpm !== null ? sc.frpm + '%' : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">ELA Proficiency</span>
-          <span class="cmp-v${cls('ela', ela)}">${ela !== null ? ela + '%' : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Math Proficiency</span>
-          <span class="cmp-v${cls('math', math)}">${math !== null ? math + '%' : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Graduation Rate</span>
-          <span class="cmp-v${cls('graduationRate', sc.graduationRate)}">${sc.graduationRate != null ? sc.graduationRate + '%' : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Chronic Absent.</span>
-          <span class="cmp-v${cls('chronicAbsenteeism', sc.chronicAbsenteeism)}">${sc.chronicAbsenteeism != null ? sc.chronicAbsenteeism + '%' : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Median Income</span>
-          <span class="cmp-v${cls('medianIncome', sc.medianIncome)}">${sc.medianIncome ? '$' + sc.medianIncome.toLocaleString() : '—'}</span></div>
-        <div class="cmp-row"><span class="cmp-k">Attendance</span>
-          <span class="cmp-v">${sc.attendance ? sc.attendance + '%' : '—'}</span></div>
-        <button class="cmp-remove-btn" onclick="removeFromCompare(${sc.id})">Remove</button>
-      </div>
-    `;
-  }).join('');
-}
-
-function removeFromCompare(schoolId) {
-  compareList = compareList.filter(s => s.id !== schoolId);
-  updateCompareCounter();
-  renderComparePanel();
-  if (openSchoolId === schoolId) updateCompareBtnState(schoolId);
-}
-
-// ── FILTER ────────────────────────────────────────────────────────────────
-
 function applyFilter() {
   activeSchools.forEach(sc => {
-    const marker = leafletMarkers[sc.id];
-    if (!marker) return;
-
-    const matchesFilter = activeFilter === 'all'
+    const m = leafletMarkers[sc.id]; if (!m) return;
+    const f = activeFilter === 'all'
       || (activeFilter === 'younglife'  && sc.type === 'HS')
       || (activeFilter === 'wyldlife'   && sc.type === 'MS')
       || (activeFilter === 'college'    && sc.type === 'College')
       || (activeFilter === 'ylone'      && sc.type === 'YLOne')
       || (activeFilter === 'capernaum'  && sc.type === 'Capernaum');
-
-    const matchesSearch = !searchQuery
+    const s = !searchQuery
       || sc.name.toLowerCase().includes(searchQuery)
       || sc.shortName.toLowerCase().includes(searchQuery)
       || sc.district.toLowerCase().includes(searchQuery);
-
-    const show = matchesFilter && matchesSearch;
-    if (show && !map.hasLayer(marker)) marker.addTo(map);
-    if (!show && map.hasLayer(marker)) map.removeLayer(marker);
+    const show = f && s;
+    if (show && !map.hasLayer(m)) m.addTo(map);
+    if (!show && map.hasLayer(m)) map.removeLayer(m);
   });
 }
 
-// ── CONTROLS WIRING ───────────────────────────────────────────────────────
-
-function wireControls() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeFilter = btn.dataset.filter;
-      applyFilter();
-    });
-  });
-
-  document.getElementById('boundaryBtn').addEventListener('click', toggleBoundaries);
-  document.getElementById('compareBtn').addEventListener('click', toggleComparePanel);
-
-  document.getElementById('cmpCloseBtn').addEventListener('click', () => {
-    comparePanelOpen = false;
-    document.getElementById('comparePanel').classList.remove('open');
-  });
-
-  document.getElementById('cmpClearBtn').addEventListener('click', () => {
-    compareList = [];
-    updateCompareCounter();
-    renderComparePanel();
-    if (openSchoolId) updateCompareBtnState(openSchoolId);
-  });
-
-  // Search
-  const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('input', e => applySearch(e.target.value));
-  searchInput.addEventListener('keydown', e => { if (e.key === 'Escape') { searchInput.value = ''; applySearch(''); } });
-
-  document.getElementById('searchClear').addEventListener('click', () => {
-    searchInput.value = '';
-    applySearch('');
-    searchInput.focus();
-  });
+/* ── COMPARE ─────────────────────────────────────────────────── */
+function toggleCompare(school) {
+  const idx = compareList.findIndex(s => s.id === school.id);
+  if (idx > -1) compareList.splice(idx, 1);
+  else {
+    if (compareList.length >= 4) { alert('Up to 4 schools.'); return; }
+    compareList.push(school);
+  }
+  updateCompareBtnState(school.id);
+  updateCompareCounter();
+  if (comparePanelOpen) renderCompare();
 }
-
-// ── HELPERS ───────────────────────────────────────────────────────────────
-
-function colorScore(val) {
-  if (val === null) return '#9ca3af';
-  if (val >= 50) return '#16a34a';
-  if (val >= 35) return '#d97706';
-  return RED;
+function updateCompareBtnState(id) {
+  const btn = document.getElementById('addCmpBtn'); if (!btn) return;
+  const inL = compareList.some(s => s.id === id);
+  btn.className = `add-cmp${inL ? ' added' : ''}`;
+  btn.textContent = inL ? '✓ Added to Comparison' : 'Add to Comparison';
 }
-
-function colorFRPM(val) {
-  if (val === null) return '#9ca3af';
-  if (val >= 60) return RED;
-  if (val >= 35) return '#d97706';
-  return '#16a34a';
+function updateCompareCounter() {
+  const n = compareList.length;
+  const btn = document.getElementById('compareBtn');
+  btn.disabled = n < 2;
+  btn.textContent = n >= 2 ? `Compare (${n})` : 'Compare';
 }
-
-function updateHeaderStats() {
-  const existing = activeSchools.filter(s => s.status === 'existing').length;
-  const target   = activeSchools.filter(s => s.status === 'target').length;
-  document.getElementById('statExisting').textContent = existing;
-  document.getElementById('statTarget').textContent   = target;
+function toggleComparePanel() {
+  comparePanelOpen = !comparePanelOpen;
+  document.getElementById('comparePanel').classList.toggle('open', comparePanelOpen);
+  if (comparePanelOpen) renderCompare();
 }
+function renderCompare() {
+  const body = document.getElementById('cmpBody');
+  if (compareList.length < 2) {
+    body.innerHTML = `<div class="cmp-empty">Add at least 2 schools to compare.</div>`; return;
+  }
+  const metrics = {enrollment:1,frpm:0,ela:1,math:1,graduationRate:1,chronicAbsenteeism:0,medianIncome:1};
+  const ext = {};
+  Object.keys(metrics).forEach(m => {
+    const vals = compareList.map(s => m === 'ela' ? s.testScores?.ela : m === 'math' ? s.testScores?.math : s[m])
+      .filter(v => v != null);
+    if (vals.length < 2) return;
+    ext[m] = { best: metrics[m] ? Math.max(...vals) : Math.min(...vals),
+               worst: metrics[m] ? Math.min(...vals) : Math.max(...vals) };
+  });
+  const cl = (m,v) => !ext[m] || v == null ? '' : v === ext[m].best ? ' best' : v === ext[m].worst ? ' worst' : '';
+  body.innerHTML = compareList.map(sc => {
+    const isE = sc.status === 'existing' || sc.type === 'Capernaum';
+    return `<div class="cmp-card">
+      <span class="cmp-card-tag ${isE ? 'existing' : 'target'}"><span class="dot"></span>${isE ? 'Active' : 'Target'} · ${TYPE_LABEL[sc.type]||''}</span>
+      <div class="cmp-card-name">${sc.shortName}</div>
+      <div class="cmp-card-dist">${sc.district}</div>
+      ${ent('Enrollment', sc.enrollment ? sc.enrollment.toLocaleString() : '—', cl('enrollment',sc.enrollment))}
+      ${ent('Free Lunch', sc.frpm != null ? sc.frpm + '%' : '—', cl('frpm',sc.frpm))}
+      ${ent('ELA Prof.', sc.testScores?.ela != null ? sc.testScores.ela + '%' : '—', cl('ela',sc.testScores?.ela))}
+      ${ent('Math Prof.', sc.testScores?.math != null ? sc.testScores.math + '%' : '—', cl('math',sc.testScores?.math))}
+      ${ent('Graduation', sc.graduationRate != null ? sc.graduationRate + '%' : '—', cl('graduationRate',sc.graduationRate))}
+      ${ent('Chronic Abs.', sc.chronicAbsenteeism != null ? sc.chronicAbsenteeism + '%' : '—', cl('chronicAbsenteeism',sc.chronicAbsenteeism))}
+      ${ent('Median Inc.', sc.medianIncome ? '$' + sc.medianIncome.toLocaleString() : '—', cl('medianIncome',sc.medianIncome))}
+      <button class="cmp-rm" onclick="removeFromCompare(${sc.id})">— Remove</button>
+    </div>`;
+  }).join('');
+}
+function ent(k,v,cls) { return `<div class="cmp-row"><span class="cmp-k">${k}</span><span class="cmp-v${cls}">${v}</span></div>`; }
+function removeFromCompare(id) {
+  compareList = compareList.filter(s => s.id !== id);
+  updateCompareCounter(); renderCompare();
+  if (openSchoolId === id) updateCompareBtnState(id);
+}
+window.removeFromCompare = removeFromCompare;
 
-// ── SCHOOL BOUNDARY ZONES ─────────────────────────────────────────────────
-
+/* ── BOUNDARIES ──────────────────────────────────────────────── */
 async function toggleBoundaries() {
   boundariesOn = !boundariesOn;
   const btn = document.getElementById('boundaryBtn');
-
   if (!boundariesOn) {
     btn.classList.remove('active');
-    btn.textContent = 'School Zones';
+    btn.textContent = 'Districts';
     if (boundaryLayer) map.removeLayer(boundaryLayer);
     return;
   }
-
   btn.classList.add('active');
   btn.textContent = 'Loading…';
-
   if (!districtGeoJSON) {
     try {
-      const res = await fetch(DISTRICT_API);
-      if (!res.ok) throw new Error(res.status);
-      districtGeoJSON = await res.json();
-    } catch (err) {
-      console.error('District boundary fetch failed:', err);
-      btn.textContent = 'School Zones';
-      btn.classList.remove('active');
-      boundariesOn = false;
-      alert('Could not load district boundaries. Check your internet connection and try again.');
-      return;
+      const r = await fetch(DISTRICT_API);
+      districtGeoJSON = await r.json();
+    } catch(e) {
+      btn.classList.remove('active'); btn.textContent = 'Districts';
+      boundariesOn = false; alert('Could not load district boundaries.'); return;
     }
   }
-
-  const existingDistricts = new Set(
-    activeSchools.filter(s => s.status === 'existing').map(s => s.district)
-  );
-
-  function districtHasExisting(apiName) {
-    return [...existingDistricts].some(d => d.includes(apiName) || apiName.includes(d.split(' ')[0]));
-  }
-
-  function districtSummary(apiName) {
-    const schools = activeSchools.filter(s =>
-      s.district.toLowerCase().includes(apiName.toLowerCase().split(' ')[0].toLowerCase())
-    );
-    const active  = schools.filter(s => s.status === 'existing');
-    const targets = schools.filter(s => s.status === 'target');
-    const totalEnroll = active.reduce((sum, s) => sum + (s.enrollment || 0), 0);
-    return { schools, active, targets, totalEnroll };
-  }
-
+  const existing = new Set(activeSchools.filter(s => s.status === 'existing').map(s => s.district));
+  const has = n => [...existing].some(d => d.includes(n) || n.includes(d.split(' ')[0]));
+  const summary = n => {
+    const ss = activeSchools.filter(s => s.district.toLowerCase().includes(n.toLowerCase().split(' ')[0]));
+    const a = ss.filter(s => s.status === 'existing');
+    const t = ss.filter(s => s.status === 'target');
+    return { a, t, e: a.reduce((sum, s) => sum + (s.enrollment||0), 0) };
+  };
   boundaryLayer = L.geoJSON(districtGeoJSON, {
-    style(feature) {
-      const hasExisting = districtHasExisting(feature.properties.DistrictName);
-      return {
-        color:       hasExisting ? NAVY : RED,
-        fillColor:   hasExisting ? NAVY : RED,
-        fillOpacity: 0.07,
-        weight:      2.5,
-        dashArray:   '7 4',
-        opacity:     0.75
-      };
+    style(f) {
+      const h = has(f.properties.DistrictName);
+      return { color: h ? '#003A5B' : '#91C83E', fillColor: h ? '#003A5B' : '#91C83E',
+        fillOpacity: 0.06, weight: 1.8, dashArray: '6 4', opacity: 0.7 };
     },
-    onEachFeature(feature, layer) {
-      const name = feature.properties.DistrictName;
-      const hasExisting = districtHasExisting(name);
-
-      layer.bindTooltip(
-        `<strong>${name}</strong><br>${hasExisting ? '✓ Active YL presence' : '◎ Target district'}`,
-        { sticky: true, className: 'district-tip' }
-      );
-
+    onEachFeature(f, layer) {
+      const n = f.properties.DistrictName;
+      layer.bindTooltip(`<strong>${n}</strong><br>${has(n) ? 'Active YL presence' : 'Opportunity district'}`, { sticky: true, className: 'district-tip' });
       layer.on('click', e => {
         L.DomEvent.stopPropagation(e);
-        const { active, targets, totalEnroll } = districtSummary(name);
-
-        const activeList  = active.map(s => `<li>✓ ${s.shortName}</li>`).join('');
-        const targetList  = targets.map(s => {
-          const prog = progressText(s);
-          return `<li>◎ ${s.shortName}${prog ? ' <em>(' + prog + ')</em>' : ''}</li>`;
-        }).join('');
-
-        L.popup({ maxWidth: 280 })
-          .setLatLng(e.latlng)
-          .setContent(`
-            <div class="district-popup">
-              <div class="dp-title">${name}</div>
-              ${active.length ? `<div class="dp-section"><strong>Active YL (${active.length})</strong><ul>${activeList}</ul>${totalEnroll ? `<div class="dp-reach">${totalEnroll.toLocaleString()} students reached</div>` : ''}</div>` : ''}
-              ${targets.length ? `<div class="dp-section"><strong>Target Schools (${targets.length})</strong><ul>${targetList}</ul></div>` : ''}
-              ${!active.length && !targets.length ? '<div class="dp-section" style="color:#9ca3af">No YL schools in this district yet.</div>' : ''}
-            </div>
-          `)
-          .openOn(map);
+        const { a, t, e: er } = summary(n);
+        L.popup({ maxWidth: 300 }).setLatLng(e.latlng).setContent(`
+          <div class="district-popup">
+            <div class="dp-title">${n}</div>
+            ${a.length ? `<div class="dp-section"><strong>Active (${a.length})</strong><ul>${a.map(s=>`<li>${s.shortName}</li>`).join('')}</ul>${er?`<div class="dp-reach">${er.toLocaleString()} students reached</div>`:''}</div>`:''}
+            ${t.length ? `<div class="dp-section"><strong>Targets (${t.length})</strong><ul>${t.map(s=>`<li>${s.shortName} ${progressText(s)?`<em>${progressText(s)}</em>`:''}</li>`).join('')}</ul></div>`:''}
+            ${!a.length && !t.length ? '<div class="dp-section" style="color:#8a8a8a">No YL schools in this district yet.</div>':''}
+          </div>
+        `).openOn(map);
       });
     }
   }).addTo(map);
+  btn.textContent = 'Districts';
+}
 
-  btn.textContent = 'School Zones';
+/* ── CONTROLS ────────────────────────────────────────────────── */
+function wireControls() {
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      activeFilter = b.dataset.filter;
+      applyFilter();
+    });
+  });
+  document.getElementById('boundaryBtn').addEventListener('click', toggleBoundaries);
+  document.getElementById('compareBtn').addEventListener('click', toggleComparePanel);
+  document.getElementById('cmpClose').addEventListener('click', () => {
+    comparePanelOpen = false;
+    document.getElementById('comparePanel').classList.remove('open');
+  });
+  document.getElementById('cmpClear').addEventListener('click', () => {
+    compareList = []; updateCompareCounter(); renderCompare();
+    if (openSchoolId) updateCompareBtnState(openSchoolId);
+  });
+  const si = document.getElementById('searchInput');
+  si.addEventListener('input', e => applySearch(e.target.value));
+  si.addEventListener('keydown', e => { if (e.key === 'Escape') { si.value=''; applySearch(''); }});
+  document.getElementById('searchClear').addEventListener('click', () => {
+    si.value = ''; applySearch(''); si.focus();
+  });
+  document.getElementById('staffCardClose').addEventListener('click', () => document.getElementById('staffCard').classList.add('hidden'));
+  document.addEventListener('click', e => {
+    const c = document.getElementById('staffCard');
+    if (!c.classList.contains('hidden') && !c.contains(e.target) && !e.target.closest('.sc-staff')) {
+      c.classList.add('hidden');
+    }
+  });
+  document.addEventListener('click', e => {
+    if (e.target?.id === 'sbClose') closeSidebar();
+  });
+}
+
+/* ── TWEAKS ──────────────────────────────────────────────────── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "spacious",
+  "marker": "pin",
+  "basemap": "paper",
+  "showStrip": true,
+  "showPhotos": false
+}/*EDITMODE-END*/;
+let tweaks = { ...TWEAK_DEFAULTS };
+
+function initTweaks() {
+  applyTweaks();
+  // Show fab + register protocol after listener wired
+  window.addEventListener('message', e => {
+    if (e.data?.type === '__activate_edit_mode') openTweaks();
+    if (e.data?.type === '__deactivate_edit_mode') closeTweaks();
+  });
+  try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch(e){}
+  document.getElementById('tweaksFab').addEventListener('click', openTweaks);
+  document.getElementById('tweaksClose').addEventListener('click', closeTweaks);
+  buildTweakControls();
+}
+
+function openTweaks() {
+  document.getElementById('tweaksFab').setAttribute('hidden','');
+  document.getElementById('tweaksPanel').classList.remove('hidden');
+}
+function closeTweaks() {
+  document.getElementById('tweaksFab').removeAttribute('hidden');
+  document.getElementById('tweaksPanel').classList.add('hidden');
+  try { window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*'); } catch(e){}
+}
+
+function setTweak(key, value) {
+  tweaks[key] = value;
+  applyTweaks();
+  buildTweakControls();
+  try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: value } }, '*'); } catch(e){}
+}
+
+function applyTweaks() {
+  document.body.classList.remove('d-compact','d-comfortable','d-spacious','no-strip','no-photo','mk-style-pin','mk-style-min','mk-style-dot');
+  document.body.classList.add('d-' + tweaks.density);
+  document.body.classList.add('mk-style-' + tweaks.marker);
+  if (!tweaks.showStrip) document.body.classList.add('no-strip');
+  if (!tweaks.showPhotos) document.body.classList.add('no-photo');
+  if (map) setBasemap(tweaks.basemap);
+}
+
+function buildTweakControls() {
+  const c = document.getElementById('tweaksBody');
+  if (!c) return;
+  c.innerHTML = `
+    <div class="tweak-group">
+      <div class="tweak-label">Density</div>
+      <div class="seg" data-key="density">
+        ${['compact','comfortable','spacious'].map(v=>`<button data-v="${v}" class="${tweaks.density===v?'on':''}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}
+      </div>
+    </div>
+    <div class="tweak-group">
+      <div class="tweak-label">Marker style</div>
+      <div class="seg" data-key="marker">
+        ${[['dot','Dot'],['pin','Pin'],['min','Minimal']].map(([v,l])=>`<button data-v="${v}" class="${tweaks.marker===v?'on':''}">${l}</button>`).join('')}
+      </div>
+    </div>
+    <div class="tweak-group">
+      <div class="tweak-label">Basemap</div>
+      <div class="seg" data-key="basemap">
+        ${[['paper','Paper'],['light','Light'],['muted','Muted']].map(([v,l])=>`<button data-v="${v}" class="${tweaks.basemap===v?'on':''}">${l}</button>`).join('')}
+      </div>
+    </div>
+    <div class="tweak-group">
+      <div class="toggle-row">
+        <span>Vision strip</span>
+        <button class="toggle ${tweaks.showStrip?'on':''}" data-toggle="showStrip"></button>
+      </div>
+    </div>
+    <div class="tweak-group">
+      <div class="toggle-row">
+        <span>School photos</span>
+        <button class="toggle ${tweaks.showPhotos?'on':''}" data-toggle="showPhotos"></button>
+      </div>
+    </div>
+  `;
+  c.querySelectorAll('.seg').forEach(seg => {
+    const key = seg.dataset.key;
+    seg.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => setTweak(key, b.dataset.v));
+    });
+  });
+  c.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => setTweak(t.dataset.toggle, !tweaks[t.dataset.toggle]));
+  });
 }

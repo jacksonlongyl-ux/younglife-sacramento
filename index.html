@@ -3,188 +3,142 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Young Life — Sacramento County Ministry Map</title>
+  <title>Young Life · Sacramento County — Ministry Map</title>
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- App styles -->
-  <link rel="stylesheet" href="styles.css?v=12">
-
-  <style>
-    html, body { height: 100%; display: flex; flex-direction: column; }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
-<header id="header">
-
+<!-- ─── MASTHEAD ─────────────────────────────────────────────────── -->
+<header class="masthead">
   <div class="brand">
-    <div class="yl-badge">YL</div>
+    <img class="brand-mark-img" src="yl-logo.png" alt="Young Life">
     <div class="brand-text">
-      <span class="brand-name">Young Life</span>
-      <span class="brand-sub">Sacramento County</span>
+      <div class="brand-name">Sacramento County <em style="font-style:italic;color:var(--ink-3)">·</em> Ministry Map</div>
+      <div class="brand-eyebrow">Young Life Field Atlas</div>
     </div>
   </div>
 
-  <div class="divider"></div>
+  <div class="mast-divider"></div>
 
-  <!-- Search -->
-  <div class="search-wrap">
-    <svg class="search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="9" cy="9" r="6"/><path d="M15 15l3 3"/>
-    </svg>
-    <input type="text" id="searchInput" placeholder="Search schools…" autocomplete="off">
-    <button id="searchClear" class="search-clear" title="Clear">&times;</button>
+  <div class="mast-search">
+    <svg class="s-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="M15 15l3 3"/></svg>
+    <input id="searchInput" type="text" placeholder="Search schools, districts…" autocomplete="off">
+    <button id="searchClear" class="s-clear" title="Clear">×</button>
   </div>
 
-  <div class="divider"></div>
-
-  <!-- Filter buttons -->
   <div class="filters" id="filterGroup">
     <button class="filter-btn active" data-filter="all">All</button>
-    <button class="filter-btn"        data-filter="younglife">Young Life</button>
-    <button class="filter-btn"        data-filter="wyldlife">Wyldlife</button>
-    <button class="filter-btn"        data-filter="college">College</button>
-    <button class="filter-btn"        data-filter="ylone">YL One</button>
-    <button class="filter-btn"        data-filter="capernaum">Capernaum</button>
+    <button class="filter-btn" data-filter="younglife">YL</button>
+    <button class="filter-btn" data-filter="wyldlife">Wyldlife</button>
+    <button class="filter-btn" data-filter="college">College</button>
+    <button class="filter-btn" data-filter="ylone">YL One</button>
+    <button class="filter-btn" data-filter="capernaum">Capernaum</button>
   </div>
 
-  <!-- Boundary zones toggle -->
-  <button id="boundaryBtn" class="boundary-btn">School Districts</button>
+  <div class="mast-spacer"></div>
 
-  <!-- Compare button -->
-  <button id="compareBtn" disabled>Compare</button>
-
-  <!-- Sheets sync indicator -->
-  <div id="syncStatus" class="sync-status hidden" title="Live sync from Google Sheets">
-    <span class="sync-dot"></span> Live
-  </div>
-
-  <!-- Live summary stats -->
-  <div class="header-stats">
-    <div class="hstat">
-      <span class="n" id="statExisting">—</span>
-      <span class="l">Active</span>
-    </div>
-    <div class="hstat">
-      <span class="n" id="statTarget">—</span>
-      <span class="l">Target</span>
-    </div>
-  </div>
-
-  <!-- Legend -->
-  <div class="legend">
-    <div class="leg-item"><div class="leg-dot yl"></div><span>Young Life</span></div>
-    <div class="leg-item"><div class="leg-dot wyldlife"></div><span>Wyldlife</span></div>
-    <div class="leg-item"><div class="leg-dot college"></div><span>College</span></div>
-    <div class="leg-item"><div class="leg-dot ylone"></div><span>YL One</span></div>
-    <div class="leg-item"><div class="leg-dot capernaum"></div><span>Capernaum</span></div>
-    <div class="leg-item"><div class="leg-dot target"></div><span>Target</span></div>
-  </div>
-
+  <div class="sync-status"><span class="sync-dot"></span>Live</div>
+  <div class="mast-divider"></div>
+  <button id="boundaryBtn" class="ghost-btn">Districts</button>
+  <button id="compareBtn" class="ghost-btn" disabled>Compare</button>
 </header>
 
-<!-- ── REACH COUNTER BAR ────────────────────────────────────────────────── -->
-<div id="reachBar">
-  <span class="reach-existing">
-    <strong id="reachExistingCount">—</strong> active schools ·
-    <strong id="reachExistingStudents">—</strong> students at active schools
-  </span>
-  <span class="reach-sep">→</span>
-  <span class="reach-target">
-    launch all <strong id="reachTargetCount">—</strong> targets ·
-    <strong id="reachTargetStudents">—</strong> additional students
-  </span>
-</div>
-
-<!-- ── MAP + OVERLAYS ──────────────────────────────────────────────────── -->
-<div id="map-wrap">
-
-  <!-- Leaflet map -->
-  <div id="map"></div>
-
-  <!-- ── SIDEBAR ─────────────────────────────────────────────────────── -->
-  <div id="sidebar">
-    <div class="sidebar-actions">
-      <button id="printBtn" class="sidebar-action-btn" title="Print school card">
-        <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M5 4v3H4a2 2 0 00-2 2v5a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v4H6v-4zm8-4a1 1 0 110 2 1 1 0 010-2z"/></svg>
-        Print
-      </button>
-      <button id="sidebarClose" title="Close">&times;</button>
+<!-- ─── VISION STRIP ─────────────────────────────────────────────── -->
+<div class="vision-strip">
+  <div class="v-item v-active">
+    <span class="v-num" id="vsActive">—</span>
+    <div class="v-meta">
+      <div class="v-label">Active ministries</div>
+      <div class="v-sub" id="vsActiveStudents">— students reached</div>
     </div>
-    <div id="sidebarContent"></div>
   </div>
 
-  <!-- ── COMPARE PANEL ───────────────────────────────────────────────── -->
-  <div id="comparePanel">
+  <div class="v-arrow">→</div>
+
+  <div class="v-item v-target">
+    <span class="v-num" id="vsTarget">—</span>
+    <div class="v-meta">
+      <div class="v-label">Target schools</div>
+      <div class="v-sub" id="vsTargetStudents">— more to reach</div>
+    </div>
+  </div>
+
+  <div class="v-tagline">Every kid. Every school. Every district.</div>
+
+  <div class="v-legend">
+    <div class="leg-item"><span class="leg-dot f leg-yl"></span>YL</div>
+    <div class="leg-item"><span class="leg-dot f leg-wl"></span>Wyldlife</div>
+    <div class="leg-item"><span class="leg-dot f leg-col"></span>College</div>
+    <div class="leg-item"><span class="leg-dot f leg-yl1"></span>YL One</div>
+    <div class="leg-item"><span class="leg-dot f leg-cap"></span>Capernaum</div>
+    <div class="leg-item"><span class="leg-dot leg-tgt"></span>Target</div>
+  </div>
+</div>
+
+<!-- ─── MAP + SIDEBAR + COMPARE ─────────────────────────────────── -->
+<main class="map-shell">
+  <div id="map"></div>
+
+  <aside id="sidebar">
+    <div id="sidebarContent"></div>
+  </aside>
+
+  <section id="comparePanel">
     <div class="cmp-header">
-      <h2>School Comparison</h2>
-      <div class="cmp-header-btns">
-        <button class="cmp-clear-btn" id="cmpClearBtn">Clear All</button>
-        <button class="cmp-close-btn" id="cmpCloseBtn">&times; Close</button>
+      <h2>School Comparison <small>Best / worst per metric</small></h2>
+      <div class="cmp-btns">
+        <button id="cmpClear">Clear All</button>
+        <button id="cmpClose">× Close</button>
       </div>
     </div>
     <div class="cmp-body" id="cmpBody">
-      <p style="color:#9ca3af;font-size:13px;padding:4px">
-        Add at least 2 schools from the sidebar to compare.
-      </p>
+      <div class="cmp-empty">Add at least 2 schools to compare.</div>
     </div>
-  </div>
+  </section>
+</main>
 
-</div>
-
-<!-- ── HOVER TOOLTIP ───────────────────────────────────────────────────── -->
+<!-- ─── TOOLTIP ─────────────────────────────────────────────────── -->
 <div id="tooltip"></div>
 
-<!-- ── STAFF CARD ──────────────────────────────────────────────────────── -->
+<!-- ─── STAFF CARD ──────────────────────────────────────────────── -->
 <div id="staffCard" class="staff-card hidden">
-  <button id="staffCardClose" class="staff-card-close">&times;</button>
-  <div class="staff-photo-wrap">
-    <img id="staffPhoto" src="" alt="">
+  <button id="staffCardClose" class="staff-card-close">×</button>
+  <div class="staff-photo-wrap" id="staffPhotoWrap">
+    <img id="staffPhoto" alt="">
   </div>
   <div class="staff-info">
     <div class="staff-name" id="staffName"></div>
     <div class="staff-title" id="staffTitle"></div>
     <a class="staff-link staff-phone" id="staffPhone" href="#">
-      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
       <span id="staffPhoneText"></span>
     </a>
     <a class="staff-link staff-email" id="staffEmail" href="#">
-      <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
       <span id="staffEmailText"></span>
     </a>
   </div>
 </div>
 
-<!-- ── PRINT STYLES ─────────────────────────────────────────────────────── -->
-<style>
-@media print {
-  #header, #reachBar, #map-wrap > #map, #comparePanel, #tooltip,
-  .sidebar-actions, .add-cmp-btn, .data-note { display: none !important; }
-  body, html { height: auto; overflow: visible; }
-  #map-wrap { display: block; height: auto; }
-  #sidebar {
-    position: static !important; transform: none !important;
-    width: 100% !important; height: auto !important;
-    box-shadow: none !important; overflow: visible !important;
-  }
-  .section { break-inside: avoid; }
-}
-</style>
+<!-- ─── TWEAKS ──────────────────────────────────────────────────── -->
+<button class="tweaks-fab" id="tweaksFab" hidden><span class="dot"></span>Tweaks</button>
+<aside class="tweaks-panel hidden" id="tweaksPanel">
+  <div class="tweaks-head">
+    <h3>Tweaks</h3>
+    <button id="tweaksClose">×</button>
+  </div>
+  <div class="tweaks-body" id="tweaksBody"></div>
+</aside>
 
-<!-- ── SCRIPTS ─────────────────────────────────────────────────────────── -->
+<!-- ─── SCRIPTS ─────────────────────────────────────────────────── -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="config.js?v=12"></script>
-<script src="data.js?v=12"></script>
-<script src="staff.js?v=12"></script>
-<script src="app.js?v=12"></script>
-
+<script src="data.js"></script>
+<script src="staff.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

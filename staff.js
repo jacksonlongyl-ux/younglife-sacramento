@@ -49,6 +49,14 @@ const YL_STAFF = {
     org: "Young Life Sacramento",
     phone: "9168042559",
     email: "isaiahyounglife@gmail.com",
-    photoFile: "staff/isaiah-ford.jpg"
+    photoFile: ""
+  },
+  "Jax Laskey": {
+    name: "Jax Laskey",
+    title: "Capernaum Director",
+    org: "Capernaum Greater Sacramento",
+    phone: "9169451838",
+    email: "jacquelynlaskey@gmail.com",
+    photoFile: ""
   }
 };
