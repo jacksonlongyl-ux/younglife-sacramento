@@ -220,14 +220,6 @@ function renderSidebar(sc) {
       <button class="sb-close" id="sbClose">×</button>
     </div>
 
-    <div class="sc-hero ${sc.photoUrl ? '' : 'placeholder'}" ${sc.photoUrl ? `style="background-image:url('${sc.photoUrl}')"`:''}>
-      <div class="sc-hero-tag ${isExisting ? '' : 'target'}">
-        <span class="dot"></span>
-        ${isExisting ? 'Active Ministry' : 'Target School'}
-      </div>
-      ${!sc.photoUrl ? `<div class="sc-hero-label">School photo · ${initials}</div>` : ''}
-    </div>
-
     <div class="sc-head">
       <div class="sc-eyebrow">
         <span>${TYPE_LABEL[sc.type] || 'Ministry'}</span>
@@ -383,25 +375,6 @@ function openStaffCard(name, anchorEl) {
   const staff = (typeof YL_STAFF !== 'undefined') ? YL_STAFF[name] : null;
   if (!staff) return;
   const card = document.getElementById('staffCard');
-  const photoWrap = document.getElementById('staffPhotoWrap');
-  const photo = document.getElementById('staffPhoto');
-  const initials = name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
-  photo.alt = staff.name;
-  if (staff.photoFile) {
-    photo.onerror = () => {
-      photoWrap.classList.add('placeholder');
-      photoWrap.dataset.initials = initials;
-      photo.style.display = 'none';
-    };
-    photo.src = staff.photoFile;
-    photoWrap.classList.remove('placeholder');
-    photo.style.display = '';
-  } else {
-    photo.removeAttribute('src');
-    photo.style.display = 'none';
-    photoWrap.classList.add('placeholder');
-    photoWrap.dataset.initials = initials;
-  }
   document.getElementById('staffName').textContent = staff.name;
   document.getElementById('staffTitle').textContent = `${staff.title} · ${staff.org}`;
   const phoneEl = document.getElementById('staffPhone');
