@@ -65,22 +65,18 @@ function initMap() {
 
 let basemapLayer;
 const BASEMAPS = {
-  paper:   'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
-  light:   'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  muted:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
-  labels:  'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+  base:   'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
 };
 let labelLayer = null;
 function setBasemap(kind) {
   if (basemapLayer) map.removeLayer(basemapLayer);
   if (labelLayer)   map.removeLayer(labelLayer);
-  basemapLayer = L.tileLayer(BASEMAPS[kind] || BASEMAPS.paper, {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 19
+  basemapLayer = L.tileLayer(BASEMAPS.base, {
+    attribution: 'Tiles &copy; <a href="https://www.esri.com">Esri</a>',
+    maxZoom: 19
   }).addTo(map);
-  if (kind === 'paper' || kind === 'muted') {
-    labelLayer = L.tileLayer(BASEMAPS.labels, { subdomains: 'abcd', maxZoom: 19 }).addTo(map);
-  }
+  labelLayer = L.tileLayer(BASEMAPS.labels, { maxZoom: 19 }).addTo(map);
 }
 
 function plotSchools() {
