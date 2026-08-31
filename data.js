@@ -633,6 +633,33 @@ const YL_SCHOOLS = [
     medianIncome: 84000
   },
 
+  {
+    id: 27,
+    name: "Arden Middle School",
+    shortName: "Arden MS",
+    type: "MS", status: "existing",
+    progress: "active",
+    notes: "Developing ministry — actively meeting.",
+    photoUrl: "",
+    staffPerson: "",
+    lat: 38.6074, lng: -121.4018,
+    district: "San Juan Unified School District",
+    grades: "6–8",
+    address: "1640 Watt Avenue, Sacramento, CA 95864",
+    enrollment: 650,
+    frpm: 35,
+    attendance: null,
+    chronicAbsenteeism: null,
+    suspensionRate: null,
+    graduationRate: null,
+    collegeCareerReady: null,
+    demographics: { hispanic: 30, asian: 18, black: 10, white: 30, filipino: 2, twoOrMore: 9, other: 1 },
+    testScores: { ela: null, math: null },
+    englishLearners: null,
+    specialEd: null,
+    medianIncome: 72000
+  },
+
   // ── CAPERNAUM LOCATIONS ────────────────────────────────────────────────────
 
   {
